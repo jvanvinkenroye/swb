@@ -121,7 +121,7 @@ def test_isbn_command(
 
     assert result.exit_code == 0
     mock_client.search_by_isbn.assert_called_once_with(
-        "978-3-16-148410-0", record_format=RecordFormat.MARCXML
+        "978-3-16-148410-0", record_format=RecordFormat.MARCXML, record_packing="xml"
     )
 
 
@@ -142,7 +142,7 @@ def test_issn_command(
 
     assert result.exit_code == 0
     mock_client.search_by_issn.assert_called_once_with(
-        "0028-0836", record_format=RecordFormat.MARCXML
+        "0028-0836", record_format=RecordFormat.MARCXML, record_packing="xml"
     )
 
 

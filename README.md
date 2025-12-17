@@ -169,6 +169,29 @@ swb search "Python" --output results.txt
 swb search "Python" --output results.txt --raw  # Include raw XML
 ```
 
+#### Record Packing Mode
+
+Control how records are returned from the server:
+
+```bash
+# Default: XML packing (records embedded as XML)
+swb search "Python" --packing xml
+
+# String packing (records escaped as strings)
+swb search "Python" --packing string
+```
+
+Available packing modes:
+- `xml` (default) - Records embedded as XML in the response (parsed and displayed)
+- `string` - Records escaped as strings in the response (returned as raw escaped XML)
+
+**Note**: String packing returns raw escaped XML strings without parsing. This mode is useful for:
+- Debugging and logging raw records
+- Integration with systems expecting string data
+- Custom XML processing
+
+Most users should use the default `xml` packing mode.
+
 #### Verbosity Control
 
 ```bash
@@ -377,6 +400,15 @@ with SWBClient() as client:
         record_format=RecordFormat.TURBOMARC,
         maximum_records=10
     )
+
+    # Search with string packing (returns raw escaped XML)
+    response = client.search(
+        "Python",
+        index=SearchIndex.TITLE,
+        record_packing="string"
+    )
+    # Note: String-packed records contain raw escaped XML in result.raw_data
+    # without parsed title, author, etc. fields
 
     # Search by ISBN
     response = client.search_by_isbn("978-3-16-148410-0")

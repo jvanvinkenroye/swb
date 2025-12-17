@@ -240,6 +240,12 @@ def cli(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     default="descending",
     help="Sort order (ascending or descending).",
 )
+@click.option(
+    "--packing",
+    type=click.Choice(["xml", "string"], case_sensitive=False),
+    default="xml",
+    help="Record packing mode (xml or string).",
+)
 @click.pass_context
 def search(
     ctx: click.Context,
@@ -253,6 +259,7 @@ def search(
     url: str | None,
     sort_by: str | None,
     sort_order: str,
+    packing: str,
 ) -> None:
     """Search the SWB catalog.
 
@@ -292,6 +299,7 @@ def search(
                 maximum_records=maximum_records,
                 sort_by=sort_by_enum,
                 sort_order=sort_order_enum,
+                record_packing=packing,
             )
 
             display_results(response, show_raw=raw, output_file=output)
@@ -331,6 +339,12 @@ def search(
     type=str,
     help="Custom SRU endpoint URL.",
 )
+@click.option(
+    "--packing",
+    type=click.Choice(["xml", "string"], case_sensitive=False),
+    default="xml",
+    help="Record packing mode (xml or string).",
+)
 @click.pass_context
 def isbn(
     ctx: click.Context,
@@ -339,6 +353,7 @@ def isbn(
     raw: bool,
     output: Path | None,
     url: str | None,
+    packing: str,
 ) -> None:
     """Search for a book by ISBN number.
 
@@ -358,7 +373,9 @@ def isbn(
                 console.print(f"[bold]Searching for ISBN:[/bold] {isbn}")
                 console.print()
 
-            response = client.search_by_isbn(isbn, record_format=fmt)
+            response = client.search_by_isbn(
+                isbn, record_format=fmt, record_packing=packing
+            )
             display_results(response, show_raw=raw, output_file=output)
 
     except Exception as e:
@@ -396,6 +413,12 @@ def isbn(
     type=str,
     help="Custom SRU endpoint URL.",
 )
+@click.option(
+    "--packing",
+    type=click.Choice(["xml", "string"], case_sensitive=False),
+    default="xml",
+    help="Record packing mode (xml or string).",
+)
 @click.pass_context
 def issn(
     ctx: click.Context,
@@ -404,6 +427,7 @@ def issn(
     raw: bool,
     output: Path | None,
     url: str | None,
+    packing: str,
 ) -> None:
     """Search for a periodical by ISSN number.
 
@@ -423,7 +447,9 @@ def issn(
                 console.print(f"[bold]Searching for ISSN:[/bold] {issn}")
                 console.print()
 
-            response = client.search_by_issn(issn, record_format=fmt)
+            response = client.search_by_issn(
+                issn, record_format=fmt, record_packing=packing
+            )
             display_results(response, show_raw=raw, output_file=output)
 
     except Exception as e:
@@ -507,6 +533,12 @@ def issn(
     default="descending",
     help="Sort order (ascending or descending).",
 )
+@click.option(
+    "--packing",
+    type=click.Choice(["xml", "string"], case_sensitive=False),
+    default="xml",
+    help="Record packing mode (xml or string).",
+)
 @click.pass_context
 def related(
     ctx: click.Context,
@@ -521,6 +553,7 @@ def related(
     url: str | None,
     sort_by: str | None,
     sort_order: str,
+    packing: str,
 ) -> None:
     """Search for records related to a specific publication (band/linking search).
 
@@ -571,6 +604,7 @@ def related(
                 maximum_records=maximum_records,
                 sort_by=sort_by_enum,
                 sort_order=sort_order_enum,
+                record_packing=packing,
             )
 
             display_results(response, show_raw=raw, output_file=output)

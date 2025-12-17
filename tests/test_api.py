@@ -720,3 +720,97 @@ def test_search_related_with_format(client: SWBClient) -> None:
         # Verify response
         assert response.total_results == 2
         assert response.format == RecordFormat.MODS
+
+
+def test_search_with_xml_packing(client: SWBClient) -> None:
+    """Test search with XML record packing (default)."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>1</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        # Search with default (xml) packing
+        _ = client.search("Python")
+
+        # Verify recordPacking parameter
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+        assert params["recordPacking"] == "xml"
+
+
+def test_search_with_string_packing(client: SWBClient) -> None:
+    """Test search with string record packing."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>1</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        # Search with string packing
+        _ = client.search("Python", record_packing="string")
+
+        # Verify recordPacking parameter
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+        assert params["recordPacking"] == "string"
+
+
+def test_search_with_invalid_packing(client: SWBClient) -> None:
+    """Test search with invalid record packing raises ValueError."""
+    with pytest.raises(ValueError, match="Invalid recordPacking value"):
+        client.search("Python", record_packing="invalid")
+
+
+def test_search_by_isbn_with_packing(client: SWBClient) -> None:
+    """Test ISBN search supports record packing."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>1</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        # Search with string packing
+        _ = client.search_by_isbn("978-3-16-148410-0", record_packing="string")
+
+        # Verify recordPacking parameter
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+        assert params["recordPacking"] == "string"
+
+
+def test_search_related_with_packing(client: SWBClient) -> None:
+    """Test related search supports record packing."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>1</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        # Search with string packing
+        _ = client.search_related(
+            ppn="123456",
+            relation_type=RelationType.CHILD,
+            record_packing="string"
+        )
+
+        # Verify recordPacking parameter
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+        assert params["recordPacking"] == "string"

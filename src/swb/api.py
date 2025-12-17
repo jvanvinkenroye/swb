@@ -81,6 +81,7 @@ class SWBClient:
         index: SearchIndex | None = None,
         sort_by: SortBy | None = None,
         sort_order: SortOrder = SortOrder.DESCENDING,
+        record_packing: str = "xml",
     ) -> SearchResponse:
         """Search the SWB catalog using CQL query syntax.
 
@@ -93,13 +94,16 @@ class SWBClient:
                   a simple keyword search in that index.
             sort_by: Sort results by relevance, year, author, or title.
             sort_order: Sort order (ascending or descending). Default is descending.
+            record_packing: How records are packed in the response. Valid values:
+                          "xml" (default) - Records embedded as XML
+                          "string" - Records escaped as strings
 
         Returns:
             SearchResponse containing the search results.
 
         Raises:
             requests.RequestException: If the API request fails.
-            ValueError: If the response cannot be parsed.
+            ValueError: If the response cannot be parsed or recordPacking is invalid.
 
         Example:
             >>> client = SWBClient()
@@ -111,6 +115,13 @@ class SWBClient:
             ... )
             >>> print(f"Found {results.total_results} results")
         """
+        # Validate recordPacking parameter
+        if record_packing not in ("xml", "string"):
+            raise ValueError(
+                f"Invalid recordPacking value: {record_packing}. "
+                "Valid values are 'xml' or 'string'."
+            )
+
         # Build CQL query if index is specified
         if index:
             cql_query = f'{index.value}="{query}"'
@@ -124,6 +135,7 @@ class SWBClient:
             "recordSchema": record_format.value,
             "startRecord": start_record,
             "maximumRecords": maximum_records,
+            "recordPacking": record_packing,
         }
 
         # Add sorting if specified
@@ -154,12 +166,14 @@ class SWBClient:
         self,
         isbn: str,
         record_format: RecordFormat = RecordFormat.MARCXML,
+        record_packing: str = "xml",
     ) -> SearchResponse:
         """Search for a book by ISBN.
 
         Args:
             isbn: ISBN number (with or without hyphens).
             record_format: Desired format for the results.
+            record_packing: How records are packed ("xml" or "string"). Default is "xml".
 
         Returns:
             SearchResponse containing the search results.
@@ -170,18 +184,21 @@ class SWBClient:
             clean_isbn,
             record_format=record_format,
             index=SearchIndex.ISBN,
+            record_packing=record_packing,
         )
 
     def search_by_issn(
         self,
         issn: str,
         record_format: RecordFormat = RecordFormat.MARCXML,
+        record_packing: str = "xml",
     ) -> SearchResponse:
         """Search for a periodical by ISSN.
 
         Args:
             issn: ISSN number (with or without hyphens).
             record_format: Desired format for the results.
+            record_packing: How records are packed ("xml" or "string"). Default is "xml".
 
         Returns:
             SearchResponse containing the search results.
@@ -191,6 +208,7 @@ class SWBClient:
             clean_issn,
             record_format=record_format,
             index=SearchIndex.ISSN,
+            record_packing=record_packing,
         )
 
     def scan(
@@ -308,6 +326,7 @@ class SWBClient:
         maximum_records: int = 10,
         sort_by: SortBy | None = None,
         sort_order: SortOrder = SortOrder.DESCENDING,
+        record_packing: str = "xml",
     ) -> SearchResponse:
         """Search for records related to a specific publication (band/linking search).
 
@@ -327,6 +346,7 @@ class SWBClient:
             maximum_records: Maximum number of records to return.
             sort_by: Sort results by relevance, year, author, or title.
             sort_order: Sort order (ascending or descending). Default is descending.
+            record_packing: How records are packed ("xml" or "string"). Default is "xml".
 
         Returns:
             SearchResponse containing the related records.
@@ -367,6 +387,7 @@ class SWBClient:
             maximum_records=maximum_records,
             sort_by=sort_by,
             sort_order=sort_order,
+            record_packing=record_packing,
         )
 
     def _parse_response(
@@ -460,6 +481,15 @@ class SWBClient:
             logger.warning("Record without recordData found")
             return None
 
+        # Check if record is string-packed (text content) or XML-packed (child elements)
+        if len(record_data_elem) == 0 and record_data_elem.text:
+            # String-packed record: recordData contains escaped XML as text
+            raw_data = record_data_elem.text
+            # For string-packed records, just return the raw escaped string
+            # Users who need string packing can parse it themselves
+            return SearchResult(raw_data=raw_data, format=record_format)
+
+        # XML-packed record: recordData contains XML child elements
         # Convert record data to string
         raw_data = etree.tostring(
             record_data_elem[0],
