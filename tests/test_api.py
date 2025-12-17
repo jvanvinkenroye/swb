@@ -472,3 +472,81 @@ def test_scan_diagnostic_error(client: SWBClient) -> None:
 
         with pytest.raises(ValueError, match="SRU scan error.*System temporarily unavailable"):
             client.scan("pica.per=Test")
+
+
+def test_explain_operation(client: SWBClient) -> None:
+    """Test explain operation for server capabilities."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <explainResponse xmlns="http://www.loc.gov/zing/srw/">
+            <record>
+                <recordData>
+                    <explain xmlns="http://explain.z3950.org/dtd/2.1/">
+                        <serverInfo>
+                            <host>sru.k10plus.de</host>
+                            <port>80</port>
+                            <database>swb</database>
+                        </serverInfo>
+                        <databaseInfo>
+                            <title>SWB - Online-Katalog</title>
+                            <description>Südwestdeutscher Bibliotheksverbund</description>
+                            <contact>info@bsz-bw.de</contact>
+                        </databaseInfo>
+                        <indexInfo>
+                            <index>
+                                <title>Title</title>
+                                <map><name>pica.tit</name></map>
+                            </index>
+                            <index>
+                                <title>Author</title>
+                                <map><name>pica.per</name></map>
+                            </index>
+                        </indexInfo>
+                        <schemaInfo>
+                            <schema identifier="marcxml" name="MARC21 XML">
+                                <title>MARC21 XML</title>
+                            </schema>
+                            <schema identifier="mods" name="MODS">
+                                <title>Metadata Object Description Schema</title>
+                            </schema>
+                        </schemaInfo>
+                    </explain>
+                </recordData>
+            </record>
+        </explainResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_response.encoding = "utf-8"
+        mock_get.return_value = mock_response
+
+        response = client.explain()
+
+        # Verify request parameters
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+        assert params["operation"] == "explain"
+
+        # Verify server info
+        assert response.server_info.host == "sru.k10plus.de"
+        assert response.server_info.port == 80
+        assert response.server_info.database == "swb"
+
+        # Verify database info
+        assert response.database_info.title == "SWB - Online-Katalog"
+        assert "Südwestdeutscher" in response.database_info.description
+        assert response.database_info.contact == "info@bsz-bw.de"
+
+        # Verify indices
+        assert len(response.indices) == 2
+        assert response.indices[0].title == "Title"
+        assert response.indices[0].name == "pica.tit"
+        assert response.indices[1].title == "Author"
+        assert response.indices[1].name == "pica.per"
+
+        # Verify schemas
+        assert len(response.schemas) == 2
+        assert response.schemas[0].identifier == "marcxml"
+        assert response.schemas[0].name == "MARC21 XML"
+        assert response.schemas[1].identifier == "mods"
+        assert response.schemas[1].name == "MODS"

@@ -539,6 +539,109 @@ def scan(
         sys.exit(1)
 
 
+@cli.command()
+@click.option(
+    "--url",
+    type=str,
+    help="Custom SRU endpoint URL.",
+)
+@click.pass_context
+def explain(
+    ctx: click.Context,
+    url: str | None,
+) -> None:
+    """Display server capabilities and configuration.
+
+    The explain operation retrieves information about the SRU server including:
+    - Server and database information
+    - Available search indices
+    - Supported record formats
+
+    Example:
+
+        swb explain
+    """
+    try:
+        with SWBClient(base_url=url) as client:
+            if not ctx.obj.get("quiet"):
+                console.print("[bold]Fetching server information...[/bold]")
+                console.print()
+
+            response = client.explain()
+
+            # Display server info
+            console.print("[bold cyan]Server Information[/bold cyan]")
+            table = Table(show_header=False, box=None)
+            table.add_column("Key", style="green")
+            table.add_column("Value", style="white")
+            table.add_row("Host", response.server_info.host)
+            if response.server_info.port:
+                table.add_row("Port", str(response.server_info.port))
+            if response.server_info.database:
+                table.add_row("Database", response.server_info.database)
+            console.print(table)
+            console.print()
+
+            # Display database info
+            console.print("[bold cyan]Database Information[/bold cyan]")
+            table = Table(show_header=False, box=None)
+            table.add_column("Key", style="green")
+            table.add_column("Value", style="white")
+            table.add_row("Title", response.database_info.title)
+            if response.database_info.description:
+                table.add_row(
+                    "Description",
+                    response.database_info.description[:100] + "..."
+                    if len(response.database_info.description) > 100
+                    else response.database_info.description,
+                )
+            console.print(table)
+            console.print()
+
+            # Display supported schemas
+            console.print(
+                f"[bold cyan]Supported Record Formats[/bold cyan] ({len(response.schemas)})"
+            )
+            schema_table = Table(show_header=True, header_style="bold magenta")
+            schema_table.add_column("Identifier", style="cyan")
+            schema_table.add_column("Name", style="green")
+
+            for schema in response.schemas:
+                schema_table.add_row(schema.identifier, schema.name)
+
+            console.print(schema_table)
+            console.print()
+
+            # Display available indices (first 20 only)
+            console.print(
+                f"[bold cyan]Available Search Indices[/bold cyan] "
+                f"({len(response.indices)} total, showing first 20)"
+            )
+            index_table = Table(show_header=True, header_style="bold magenta")
+            index_table.add_column("#", style="dim", width=4)
+            index_table.add_column("CQL Name", style="cyan", no_wrap=False)
+            index_table.add_column("Title", style="green", no_wrap=False)
+
+            for idx, index in enumerate(response.indices[:20], 1):
+                index_table.add_row(
+                    str(idx),
+                    index.name,
+                    index.title,
+                )
+
+            console.print(index_table)
+
+            if len(response.indices) > 20:
+                console.print(
+                    f"\n[dim]... and {len(response.indices) - 20} more indices[/dim]"
+                )
+
+    except Exception as e:
+        console_err.print(f"[red]Error:[/red] {e}")
+        logging.exception("Explain operation failed")
+        sys.exit(1)
+
+
 def main() -> None:
     """Entry point for the CLI application."""
     cli(obj={})

@@ -7,8 +7,9 @@ A Python CLI client for querying the Südwestdeutscher Bibliotheksverbund (SWB) 
 - Search the SWB catalog using CQL queries or simple keywords
 - Support for multiple search indices (title, author, ISBN, ISSN, etc.)
 - Index scanning for auto-completion and browsing terms
+- Server capabilities discovery via SRU explain operation
 - Sort results by relevance, year, author, or title
-- Multiple output formats (MARCXML, MODS, PICA, Dublin Core)
+- Multiple output formats (MARCXML, TurboMARC, MODS, PICA, Dublin Core)
 - Rich terminal output with formatted tables
 - Export search results to files
 - Comprehensive error handling and logging
@@ -192,6 +193,26 @@ swb search 'pica.tit="Pytho*"'
 swb search 'pica.tit="Machine Learning" and pica.ejr=2023'
 ```
 
+### Server Capabilities (Explain)
+
+Get detailed information about the SRU server's capabilities:
+
+```bash
+swb explain
+```
+
+This displays:
+- **Server Information**: Host, port, database name
+- **Database Information**: Title, description, contact
+- **Supported Record Formats**: All available output formats (MARCXML, MODS, TurboMARC, etc.)
+- **Available Search Indices**: All searchable fields with their CQL names (256+ indices)
+
+The explain operation is useful for:
+- Discovering available search indices
+- Finding supported record formats
+- Understanding server configuration
+- Programmatic service discovery
+
 ### List Available Options
 
 Show available record formats:
@@ -215,6 +236,7 @@ swb --help
 swb search --help
 swb isbn --help
 swb scan --help
+swb explain --help
 ```
 
 ## Development
@@ -333,6 +355,13 @@ with SWBClient() as client:
         response_position=1
     )
 
+    # Get server capabilities
+    explain_response = client.explain()
+    print(f"Server: {explain_response.server_info.host}")
+    print(f"Database: {explain_response.database_info.title}")
+    print(f"Supported formats: {len(explain_response.schemas)}")
+    print(f"Available indices: {len(explain_response.indices)}")
+
     # Process results
     for result in response.results:
         print(f"Title: {result.title}")
@@ -384,6 +413,47 @@ The `ScanTerm` object contains:
 - `number_of_records` - Number of records for this term
 - `display_term` - Display form of the term (optional, may be None)
 - `extra_data` - Additional term data (optional, may be None)
+
+### Explain Response
+
+The `ExplainResponse` object contains:
+
+- `server_info` - ServerInfo object with server details
+- `database_info` - DatabaseInfo object with database details
+- `indices` - List of IndexInfo objects (available search indices)
+- `schemas` - List of SchemaInfo objects (supported record formats)
+
+### Server Info
+
+The `ServerInfo` object contains:
+
+- `host` - Server hostname
+- `port` - Server port (optional, may be None)
+- `database` - Database name (optional, may be None)
+
+### Database Info
+
+The `DatabaseInfo` object contains:
+
+- `title` - Database title
+- `description` - Database description (optional, may be None)
+- `contact` - Contact information (optional, may be None)
+
+### Index Info
+
+The `IndexInfo` object contains:
+
+- `title` - Human-readable index title
+- `name` - CQL index name (e.g., "pica.tit", "pica.per")
+- `description` - Index description (optional, may be None)
+
+### Schema Info
+
+The `SchemaInfo` object contains:
+
+- `identifier` - Schema identifier (e.g., "marcxml", "mods")
+- `name` - Schema name
+- `title` - Schema title (optional, may be None)
 
 ## SRU API Reference
 

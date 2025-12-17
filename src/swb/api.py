@@ -7,12 +7,17 @@ import requests
 from lxml import etree
 
 from swb.models import (
+    DatabaseInfo,
+    ExplainResponse,
+    IndexInfo,
     RecordFormat,
     ScanResponse,
     ScanTerm,
+    SchemaInfo,
     SearchIndex,
     SearchResponse,
     SearchResult,
+    ServerInfo,
     SortBy,
     SortOrder,
 )
@@ -243,6 +248,53 @@ class SWBClient:
             raise
 
         return self._parse_scan_response(response.text, scan_clause, response_position)
+
+    def explain(self) -> ExplainResponse:
+        """Retrieve server capabilities and configuration (SRU explain operation).
+
+        The explain operation returns information about the server including:
+        - Server and database information
+        - Available search indices
+        - Supported record schemas/formats
+        - Configuration details
+
+        Returns:
+            ExplainResponse containing server capabilities.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+            ValueError: If the response cannot be parsed.
+
+        Example:
+            >>> client = SWBClient()
+            >>> info = client.explain()
+            >>> print(f"Database: {info.database_info.title}")
+            >>> print(f"Available indices: {len(info.indices)}")
+            >>> for schema in info.schemas:
+            ...     print(f"  - {schema.name}")
+        """
+        params = {
+            "version": self.SRU_VERSION,
+            "operation": "explain",
+        }
+
+        logger.info("Fetching server explain record")
+        logger.debug(f"Request parameters: {params}")
+
+        try:
+            response = self.session.get(
+                self.base_url,
+                params=params,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            # Ensure UTF-8 encoding
+            response.encoding = "utf-8"
+        except requests.RequestException as e:
+            logger.error(f"Explain request failed: {e}")
+            raise
+
+        return self._parse_explain_response(response.text)
 
     def _parse_response(
         self,
@@ -647,6 +699,131 @@ class SWBClient:
             terms=terms,
             scan_clause=scan_clause,
             response_position=response_position,
+        )
+
+    def _parse_explain_response(self, xml_data: str) -> ExplainResponse:
+        """Parse the SRU explain response.
+
+        Args:
+            xml_data: Raw XML response from the explain API.
+
+        Returns:
+            Parsed ExplainResponse object.
+
+        Raises:
+            ValueError: If the XML cannot be parsed or is invalid.
+        """
+        try:
+            # Encode string to UTF-8 bytes for lxml parsing
+            xml_bytes = (
+                xml_data.encode("utf-8") if isinstance(xml_data, str) else xml_data
+            )
+            root = etree.fromstring(xml_bytes)
+        except etree.XMLSyntaxError as e:
+            logger.error(f"Failed to parse explain XML response: {e}")
+            raise ValueError(f"Invalid explain XML response: {e}") from e
+
+        # Namespaces for explain response
+        # Note: Support both 2.0 and 2.1 versions of the explain schema
+        ns_list = [
+            {
+                "zs": "http://www.loc.gov/zing/srw/",
+                "zr": "http://explain.z3950.org/dtd/2.0/",
+            },
+            {
+                "zs": "http://www.loc.gov/zing/srw/",
+                "zr": "http://explain.z3950.org/dtd/2.1/",
+            },
+        ]
+
+        # Try to find elements with either namespace version
+        ns = ns_list[0]
+        for namespace in ns_list:
+            if root.find(".//zr:serverInfo", namespaces=namespace) is not None:
+                ns = namespace
+                break
+
+        # Parse server info
+        server_elem = root.find(".//zr:serverInfo", namespaces=ns)
+        if server_elem is not None:
+            host_elem = server_elem.find(".//zr:host", namespaces=ns)
+            port_elem = server_elem.find(".//zr:port", namespaces=ns)
+            database_elem = server_elem.find(".//zr:database", namespaces=ns)
+
+            server_info = ServerInfo(
+                host=host_elem.text if host_elem is not None else "unknown",
+                port=int(port_elem.text) if port_elem is not None and port_elem.text else None,
+                database=database_elem.text if database_elem is not None else None,
+            )
+        else:
+            server_info = ServerInfo(host="unknown")
+
+        # Parse database info
+        database_elem = root.find(".//zr:databaseInfo", namespaces=ns)
+        if database_elem is not None:
+            title_elem = database_elem.find(".//zr:title", namespaces=ns)
+            description_elem = database_elem.find(".//zr:description", namespaces=ns)
+            contact_elem = database_elem.find(".//zr:contact", namespaces=ns)
+
+            database_info = DatabaseInfo(
+                title=title_elem.text if title_elem is not None and title_elem.text else "Unknown",
+                description=description_elem.text if description_elem is not None else None,
+                contact=contact_elem.text if contact_elem is not None else None,
+            )
+        else:
+            database_info = DatabaseInfo(title="Unknown")
+
+        # Parse index info
+        indices: list[IndexInfo] = []
+        index_elements = root.findall(".//zr:indexInfo/zr:index", namespaces=ns)
+        for index_elem in index_elements:
+            title_elem = index_elem.find(".//zr:title", namespaces=ns)
+            # The map element contains the index name and set
+            map_name_elem = index_elem.find(".//zr:map/zr:name", namespaces=ns)
+
+            if title_elem is not None and map_name_elem is not None:
+                # Construct full CQL name: set.name (e.g., "pica.tit")
+                set_attr = map_name_elem.get("set", "")
+                name_text = map_name_elem.text or ""
+                full_name = f"{set_attr}.{name_text}" if set_attr else name_text
+
+                indices.append(
+                    IndexInfo(
+                        title=title_elem.text or "Unknown",
+                        name=full_name,
+                        description=None,
+                    )
+                )
+
+        # Parse schema info
+        schemas: list[SchemaInfo] = []
+        schema_elements = root.findall(".//zr:schemaInfo/zr:schema", namespaces=ns)
+        for schema_elem in schema_elements:
+            identifier_attr = schema_elem.get("identifier", "")
+            name_attr = schema_elem.get("name", "")
+            title_elem = schema_elem.find(".//zr:title", namespaces=ns)
+
+            # Use name as identifier if identifier is empty
+            schema_id = identifier_attr if identifier_attr else name_attr
+
+            if schema_id:
+                schemas.append(
+                    SchemaInfo(
+                        identifier=schema_id,
+                        name=name_attr if name_attr else schema_id,
+                        title=title_elem.text if title_elem is not None else None,
+                    )
+                )
+
+        logger.info(
+            f"Parsed explain response: {len(indices)} indices, {len(schemas)} schemas"
+        )
+
+        return ExplainResponse(
+            server_info=server_info,
+            database_info=database_info,
+            indices=indices,
+            schemas=schemas,
         )
 
     def close(self) -> None:

@@ -124,3 +124,84 @@ class ScanResponse:
     terms: list[ScanTerm]
     scan_clause: str
     response_position: int = 1
+
+
+@dataclass
+class IndexInfo:
+    """Information about a searchable index.
+
+    Attributes:
+        title: Index title/name
+        name: Index identifier (CQL name)
+        description: Optional description of the index
+    """
+
+    title: str
+    name: str
+    description: str | None = None
+
+
+@dataclass
+class SchemaInfo:
+    """Information about a record schema format.
+
+    Attributes:
+        identifier: Schema identifier (e.g., "marcxml", "mods")
+        name: Human-readable schema name
+        title: Optional schema title
+    """
+
+    identifier: str
+    name: str
+    title: str | None = None
+
+
+@dataclass
+class DatabaseInfo:
+    """Information about the SRU database.
+
+    Attributes:
+        title: Database title
+        description: Database description
+        contact: Contact information
+    """
+
+    title: str
+    description: str | None = None
+    contact: str | None = None
+
+
+@dataclass
+class ServerInfo:
+    """Information about the SRU server.
+
+    Attributes:
+        host: Server host
+        port: Server port
+        database: Database name
+    """
+
+    host: str
+    port: int | None = None
+    database: str | None = None
+
+
+@dataclass
+class ExplainResponse:
+    """Represents the response from an SRU explain operation.
+
+    The explain operation provides information about the server's capabilities,
+    including available search indices, supported record formats, and database
+    information.
+
+    Attributes:
+        server_info: Information about the server
+        database_info: Information about the database
+        indices: List of available search indices
+        schemas: List of supported record schemas
+    """
+
+    server_info: ServerInfo
+    database_info: DatabaseInfo
+    indices: list[IndexInfo]
+    schemas: list[SchemaInfo]
