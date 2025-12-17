@@ -190,6 +190,98 @@ def test_parse_marcxml_with_umlauts(client: SWBClient) -> None:
     assert result.year == "2026"
 
 
+def test_parse_turbomarc_record(client: SWBClient) -> None:
+    """Test parsing a TurboMARC record."""
+    from swb.models import RecordFormat
+
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+    <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+        <numberOfRecords>1</numberOfRecords>
+        <records>
+            <record>
+                <recordData>
+                    <r xmlns="http://www.indexdata.com/turbomarc">
+                        <c001>123456789</c001>
+                        <d245 i1="1" i2="0">
+                            <sa>Python Programming</sa>
+                            <sb>A Comprehensive Guide</sb>
+                        </d245>
+                        <d100 i1="1" i2=" ">
+                            <sa>Doe, John</sa>
+                        </d100>
+                        <d264 i1=" " i2="1">
+                            <sc>2023</sc>
+                            <sb>Tech Publishers</sb>
+                        </d264>
+                        <d020 i1=" " i2=" ">
+                            <sa>978-1-234-56789-0</sa>
+                        </d020>
+                    </r>
+                </recordData>
+            </record>
+        </records>
+    </searchRetrieveResponse>"""
+
+    response = client._parse_response(
+        xml_response, "test query", RecordFormat.TURBOMARC
+    )
+
+    assert response.total_results == 1
+    assert len(response.results) == 1
+
+    result = response.results[0]
+    assert result.record_id == "123456789"
+    assert result.title == "Python Programming"
+    assert result.author == "Doe, John"
+    assert result.year == "2023"
+    assert result.publisher == "Tech Publishers"
+    assert result.isbn == "978-1-234-56789-0"
+    assert result.format == RecordFormat.TURBOMARC
+
+
+def test_parse_turbomarc_with_umlauts(client: SWBClient) -> None:
+    """Test parsing TurboMARC with German umlauts (UTF-8 encoding)."""
+    from swb.models import RecordFormat
+
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+    <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+        <numberOfRecords>1</numberOfRecords>
+        <records>
+            <record>
+                <recordData>
+                    <r xmlns="http://www.indexdata.com/turbomarc">
+                        <c001>987654321</c001>
+                        <d245 i1="1" i2="0">
+                            <sa>Einführung in GitHub Copilot</sa>
+                        </d245>
+                        <d100 i1="1" i2=" ">
+                            <sa>Schürmann, Tim</sa>
+                        </d100>
+                        <d264 i1=" " i2="1">
+                            <sc>2026</sc>
+                            <sb>O'Reilly Verlag</sb>
+                        </d264>
+                    </r>
+                </recordData>
+            </record>
+        </records>
+    </searchRetrieveResponse>"""
+
+    response = client._parse_response(
+        xml_response, "test query", RecordFormat.TURBOMARC
+    )
+
+    assert response.total_results == 1
+    assert len(response.results) == 1
+
+    result = response.results[0]
+    # Test that German umlauts are correctly preserved in TurboMARC
+    assert result.title == "Einführung in GitHub Copilot"
+    assert result.author == "Schürmann, Tim"
+    assert result.publisher == "O'Reilly Verlag"
+    assert result.year == "2026"
+
+
 def test_search_with_sorting(client: SWBClient) -> None:
     """Test search with sorting parameters."""
     from swb.models import SortBy, SortOrder

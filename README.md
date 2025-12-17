@@ -79,10 +79,12 @@ Choose different record formats:
 ```bash
 swb search "Python" --format mods
 swb search "Python" --format picaxml
+swb search "Python" --format turbomarc
 ```
 
 Available formats:
 - `marcxml` (default) - MARC 21 XML format
+- `turbomarc` - TurboMARC (optimized XML for MARC records)
 - `mods` - Metadata Object Description Schema
 - `picaxml` - PICA XML format
 - `dc` - Dublin Core
@@ -308,6 +310,14 @@ with SWBClient() as client:
         sort_by=SortBy.YEAR,
         sort_order=SortOrder.DESCENDING,
         maximum_records=20
+    )
+
+    # Search with TurboMARC format (optimized for XSLT processing)
+    response = client.search(
+        "Python",
+        index=SearchIndex.TITLE,
+        record_format=RecordFormat.TURBOMARC,
+        maximum_records=10
     )
 
     # Search by ISBN

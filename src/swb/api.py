@@ -345,6 +345,8 @@ class SWBClient:
         # Parse based on format
         if record_format == RecordFormat.MARCXML:
             return self._parse_marcxml(record_data_elem, raw_data)
+        elif record_format == RecordFormat.TURBOMARC:
+            return self._parse_turbomarc(record_data_elem, raw_data)
         elif record_format == RecordFormat.MODS:
             return self._parse_mods(record_data_elem, raw_data)
         else:
@@ -428,6 +430,75 @@ class SWBClient:
             namespaces=self.NAMESPACES,
         )
         if isbn_field is not None:
+            result.isbn = isbn_field.text
+
+        return result
+
+    def _parse_turbomarc(
+        self,
+        record_elem: etree._Element,
+        raw_data: str,
+    ) -> SearchResult:
+        """Parse TurboMARC formatted record.
+
+        TurboMARC is an XML encoding of MARC records optimized for XSLT processing.
+        It uses element names instead of attributes for field tags and subfield codes.
+
+        Format:
+        - Namespace: http://www.indexdata.com/turbomarc
+        - Record element: <r>
+        - Control fields: <c001>, <c008>, etc.
+        - Data fields: <d245>, <d100>, etc. with i1, i2 attributes
+        - Subfields: <sa>, <sb>, <sc>, etc.
+
+        Args:
+            record_elem: XML element containing TurboMARC data.
+            raw_data: Raw XML string.
+
+        Returns:
+            Parsed SearchResult.
+        """
+        # TurboMARC namespace
+        turbomarc_ns = {"tm": "http://www.indexdata.com/turbomarc"}
+
+        result = SearchResult(raw_data=raw_data, format=RecordFormat.TURBOMARC)
+
+        # Extract record ID (control field 001)
+        controlfield_001 = record_elem.find(".//tm:c001", namespaces=turbomarc_ns)
+        if controlfield_001 is not None and controlfield_001.text:
+            result.record_id = controlfield_001.text
+
+        # Extract title (field 245 subfield a)
+        title_field = record_elem.find(".//tm:d245/tm:sa", namespaces=turbomarc_ns)
+        if title_field is not None and title_field.text:
+            result.title = title_field.text
+
+        # Extract author (field 100 or 700 subfield a)
+        author_field = record_elem.find(".//tm:d100/tm:sa", namespaces=turbomarc_ns)
+        if author_field is None:
+            author_field = record_elem.find(".//tm:d700/tm:sa", namespaces=turbomarc_ns)
+        if author_field is not None and author_field.text:
+            result.author = author_field.text
+
+        # Extract publication year (field 264 or 260 subfield c)
+        year_field = record_elem.find(".//tm:d264/tm:sc", namespaces=turbomarc_ns)
+        if year_field is None:
+            year_field = record_elem.find(".//tm:d260/tm:sc", namespaces=turbomarc_ns)
+        if year_field is not None and year_field.text:
+            result.year = year_field.text
+
+        # Extract publisher (field 264 or 260 subfield b)
+        publisher_field = record_elem.find(".//tm:d264/tm:sb", namespaces=turbomarc_ns)
+        if publisher_field is None:
+            publisher_field = record_elem.find(
+                ".//tm:d260/tm:sb", namespaces=turbomarc_ns
+            )
+        if publisher_field is not None and publisher_field.text:
+            result.publisher = publisher_field.text
+
+        # Extract ISBN (field 020 subfield a)
+        isbn_field = record_elem.find(".//tm:d020/tm:sa", namespaces=turbomarc_ns)
+        if isbn_field is not None and isbn_field.text:
             result.isbn = isbn_field.text
 
         return result

@@ -12,6 +12,7 @@ class RecordFormat(str, Enum):
     PICA = "picaxml"
     DUBLIN_CORE = "dc"
     ISBD = "isbd"
+    TURBOMARC = "turbomarc"
 
 
 class SearchIndex(str, Enum):
