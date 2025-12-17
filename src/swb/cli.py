@@ -450,6 +450,95 @@ def indices() -> None:
     console.print(table)
 
 
+@cli.command()
+@click.argument("scan_clause")
+@click.option(
+    "--max",
+    "-m",
+    "maximum_terms",
+    type=int,
+    default=20,
+    help="Maximum number of terms to retrieve.",
+)
+@click.option(
+    "--position",
+    "-p",
+    "response_position",
+    type=int,
+    default=1,
+    help="Starting position in the term list.",
+)
+@click.option(
+    "--url",
+    type=str,
+    help="Custom SRU endpoint URL.",
+)
+@click.pass_context
+def scan(
+    ctx: click.Context,
+    scan_clause: str,
+    maximum_terms: int,
+    response_position: int,
+    url: str | None,
+) -> None:
+    """Scan an index for terms (auto-completion and browsing).
+
+    SCAN_CLAUSE is a CQL scan clause to browse index terms.
+
+    Examples:
+
+        Find authors starting with "Goe":
+
+            swb scan "pica.per=Goe"
+
+        Find titles starting with "Python":
+
+            swb scan "pica.tit=Python" --max 10
+
+        Browse subjects:
+
+            swb scan "pica.sub=Machine Learning"
+    """
+    try:
+        with SWBClient(base_url=url) as client:
+            if not ctx.obj.get("quiet"):
+                console.print(f"[bold]Scanning:[/bold] {scan_clause}")
+                console.print()
+
+            response = client.scan(
+                scan_clause=scan_clause,
+                response_position=response_position,
+                maximum_terms=maximum_terms,
+            )
+
+            # Display results in a table
+            if not response.terms:
+                console.print("[yellow]No terms found.[/yellow]")
+                return
+
+            table = Table(title="Scan Results", show_header=True)
+            table.add_column("#", style="dim", width=4)
+            table.add_column("Term", style="cyan", no_wrap=False)
+            table.add_column("Records", style="green", justify="right")
+
+            for idx, term in enumerate(response.terms, 1):
+                display_value = term.display_term or term.value
+                table.add_row(
+                    str(idx),
+                    display_value,
+                    str(term.number_of_records),
+                )
+
+            console.print(table)
+            console.print()
+            console.print(f"[dim]Found {len(response.terms)} terms[/dim]")
+
+    except Exception as e:
+        console_err.print(f"[red]Error:[/red] {e}")
+        logging.exception("Scan failed")
+        sys.exit(1)
+
+
 def main() -> None:
     """Entry point for the CLI application."""
     cli(obj={})

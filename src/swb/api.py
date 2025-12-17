@@ -8,6 +8,8 @@ from lxml import etree
 
 from swb.models import (
     RecordFormat,
+    ScanResponse,
+    ScanTerm,
     SearchIndex,
     SearchResponse,
     SearchResult,
@@ -183,6 +185,64 @@ class SWBClient:
             record_format=record_format,
             index=SearchIndex.ISSN,
         )
+
+    def scan(
+        self,
+        scan_clause: str,
+        response_position: int = 1,
+        maximum_terms: int = 20,
+    ) -> ScanResponse:
+        """Scan an index for terms (for auto-completion and browsing).
+
+        The scan operation allows browsing index terms, which is useful for:
+        - Auto-completion in search interfaces
+        - Exploring available terms before searching
+        - Finding correct spellings
+
+        Args:
+            scan_clause: CQL scan clause (e.g., "pica.per=Goe" to find authors
+                        starting with "Goe").
+            response_position: Position in the term list to start from (1-based).
+            maximum_terms: Maximum number of terms to return.
+
+        Returns:
+            ScanResponse containing the list of terms.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+            ValueError: If the response cannot be parsed.
+
+        Example:
+            >>> client = SWBClient()
+            >>> response = client.scan("pica.per=Goe", maximum_terms=10)
+            >>> for term in response.terms:
+            ...     print(f"{term.value}: {term.number_of_records} records")
+        """
+        params: dict[str, str | int] = {
+            "version": self.SRU_VERSION,
+            "operation": "scan",
+            "scanClause": scan_clause,
+            "responsePosition": response_position,
+            "maximumTerms": maximum_terms,
+        }
+
+        logger.info(f"Scanning index: {scan_clause}")
+        logger.debug(f"Request parameters: {params}")
+
+        try:
+            response = self.session.get(
+                self.base_url,
+                params=params,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            # Ensure UTF-8 encoding for proper handling of German umlauts
+            response.encoding = "utf-8"
+        except requests.RequestException as e:
+            logger.error(f"Scan request failed: {e}")
+            raise
+
+        return self._parse_scan_response(response.text, scan_clause, response_position)
 
     def _parse_response(
         self,
@@ -429,6 +489,94 @@ class SWBClient:
             result.isbn = isbn_elem.text
 
         return result
+
+    def _parse_scan_response(
+        self,
+        xml_data: str,
+        scan_clause: str,
+        response_position: int,
+    ) -> ScanResponse:
+        """Parse the SRU scan response.
+
+        Args:
+            xml_data: Raw XML response from the scan API.
+            scan_clause: Original scan clause.
+            response_position: Position in the term list.
+
+        Returns:
+            Parsed ScanResponse object.
+
+        Raises:
+            ValueError: If the XML cannot be parsed or is invalid.
+        """
+        try:
+            # Encode string to UTF-8 bytes for lxml parsing
+            xml_bytes = (
+                xml_data.encode("utf-8") if isinstance(xml_data, str) else xml_data
+            )
+            root = etree.fromstring(xml_bytes)
+        except etree.XMLSyntaxError as e:
+            logger.error(f"Failed to parse scan XML response: {e}")
+            raise ValueError(f"Invalid scan XML response: {e}") from e
+
+        # Parse scan terms
+        # The scan response uses a different namespace structure
+        ns = {"srw": "http://www.loc.gov/zing/srw/"}
+        diag_ns = {
+            "srw": "http://www.loc.gov/zing/srw/",
+            "diag": "http://www.loc.gov/zing/srw/diagnostic/",
+        }
+
+        # Check for diagnostic errors first
+        diagnostic = root.find(".//srw:diagnostics/diag:diagnostic", namespaces=diag_ns)
+        if diagnostic is not None:
+            uri_elem = diagnostic.find("diag:uri", namespaces=diag_ns)
+            message_elem = diagnostic.find("diag:message", namespaces=diag_ns)
+            error_uri = uri_elem.text if uri_elem is not None else "unknown"
+            error_message = (
+                message_elem.text if message_elem is not None else "Unknown error"
+            )
+            raise ValueError(f"SRU scan error ({error_uri}): {error_message}")
+
+        terms = []
+        term_elements = root.findall(".//srw:term", namespaces=ns)
+
+        for term_elem in term_elements:
+            # Extract term value
+            value_elem = term_elem.find("srw:value", namespaces=ns)
+            if value_elem is None or value_elem.text is None:
+                continue
+
+            # Extract number of records
+            num_records_elem = term_elem.find("srw:numberOfRecords", namespaces=ns)
+            num_records = (
+                int(num_records_elem.text) if num_records_elem is not None else 0
+            )
+
+            # Extract display term (optional)
+            display_elem = term_elem.find("srw:displayTerm", namespaces=ns)
+            display_term = display_elem.text if display_elem is not None else None
+
+            # Extract extra data (optional)
+            extra_elem = term_elem.find("srw:extraTermData", namespaces=ns)
+            extra_data = extra_elem.text if extra_elem is not None else None
+
+            terms.append(
+                ScanTerm(
+                    value=value_elem.text,
+                    number_of_records=num_records,
+                    display_term=display_term,
+                    extra_data=extra_data,
+                )
+            )
+
+        logger.info(f"Parsed {len(terms)} terms from scan response")
+
+        return ScanResponse(
+            terms=terms,
+            scan_clause=scan_clause,
+            response_position=response_position,
+        )
 
     def close(self) -> None:
         """Close the session and release resources."""

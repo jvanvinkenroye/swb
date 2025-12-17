@@ -260,3 +260,123 @@ def test_search_without_sorting(client: SWBClient) -> None:
         assert call_args is not None
         params = call_args.kwargs["params"]
         assert "sortKeys" not in params
+
+
+def test_scan_operation(client: SWBClient) -> None:
+    """Test scan operation for browsing terms."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <scanResponse xmlns="http://www.loc.gov/zing/srw/">
+            <terms>
+                <term>
+                    <value>Goethe, Johann Wolfgang von</value>
+                    <numberOfRecords>28531</numberOfRecords>
+                    <displayTerm>Goethe, Johann Wolfgang von</displayTerm>
+                </term>
+                <term>
+                    <value>Goebbels, Joseph</value>
+                    <numberOfRecords>45</numberOfRecords>
+                </term>
+                <term>
+                    <value>Goebel, Klaus</value>
+                    <numberOfRecords>12</numberOfRecords>
+                </term>
+            </terms>
+        </scanResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_response.encoding = "utf-8"
+        mock_get.return_value = mock_response
+
+        response = client.scan("pica.per=Goe", maximum_terms=10)
+
+        # Verify request parameters
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+        assert params["operation"] == "scan"
+        assert params["scanClause"] == "pica.per=Goe"
+        assert params["maximumTerms"] == 10
+
+        # Verify response parsing
+        assert len(response.terms) == 3
+        assert response.scan_clause == "pica.per=Goe"
+
+        # Check first term
+        first_term = response.terms[0]
+        assert first_term.value == "Goethe, Johann Wolfgang von"
+        assert first_term.number_of_records == 28531
+        assert first_term.display_term == "Goethe, Johann Wolfgang von"
+
+        # Check second term
+        second_term = response.terms[1]
+        assert second_term.value == "Goebbels, Joseph"
+        assert second_term.number_of_records == 45
+
+
+def test_scan_empty_response(client: SWBClient) -> None:
+    """Test scan with no results."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <scanResponse xmlns="http://www.loc.gov/zing/srw/">
+            <terms>
+            </terms>
+        </scanResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_response.encoding = "utf-8"
+        mock_get.return_value = mock_response
+
+        response = client.scan("pica.per=ZZZZZ")
+
+        assert len(response.terms) == 0
+
+
+def test_scan_with_umlauts(client: SWBClient) -> None:
+    """Test scan operation with German umlauts."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <scanResponse xmlns="http://www.loc.gov/zing/srw/">
+            <terms>
+                <term>
+                    <value>Schürmann, Tim</value>
+                    <numberOfRecords>15</numberOfRecords>
+                </term>
+                <term>
+                    <value>Müller, Hans</value>
+                    <numberOfRecords>234</numberOfRecords>
+                </term>
+            </terms>
+        </scanResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_response.encoding = "utf-8"
+        mock_get.return_value = mock_response
+
+        response = client.scan("pica.per=Schü")
+
+        assert len(response.terms) == 2
+        assert response.terms[0].value == "Schürmann, Tim"
+        assert response.terms[1].value == "Müller, Hans"
+
+
+def test_scan_diagnostic_error(client: SWBClient) -> None:
+    """Test scan with diagnostic error response."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <scanResponse xmlns="http://www.loc.gov/zing/srw/">
+            <version>1.1</version>
+            <diagnostics>
+                <diagnostic xmlns="http://www.loc.gov/zing/srw/diagnostic/">
+                    <uri>info:srw/diagnostic/1/2</uri>
+                    <message>System temporarily unavailable</message>
+                </diagnostic>
+            </diagnostics>
+        </scanResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_response.encoding = "utf-8"
+        mock_get.return_value = mock_response
+
+        with pytest.raises(ValueError, match="SRU scan error.*System temporarily unavailable"):
+            client.scan("pica.per=Test")

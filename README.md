@@ -6,6 +6,8 @@ A Python CLI client for querying the Südwestdeutscher Bibliotheksverbund (SWB) 
 
 - Search the SWB catalog using CQL queries or simple keywords
 - Support for multiple search indices (title, author, ISBN, ISSN, etc.)
+- Index scanning for auto-completion and browsing terms
+- Sort results by relevance, year, author, or title
 - Multiple output formats (MARCXML, MODS, PICA, Dublin Core)
 - Rich terminal output with formatted tables
 - Export search results to files
@@ -114,6 +116,34 @@ Sort order:
 - `descending` (default) - Newest/Z-A
 - `ascending` - Oldest/A-Z
 
+#### Index Scanning (Browse and Auto-completion)
+
+Scan an index to browse terms and find the exact form of names, subjects, or titles:
+
+```bash
+# Find authors starting with "Goe"
+swb scan "pica.per=Goe" --max 10
+
+# Find titles starting with "Python"
+swb scan "pica.tit=Python"
+
+# Browse subjects starting with "Machine Learning"
+swb scan "pica.sub=Machine Learning" --max 20
+```
+
+The scan operation is useful for:
+- **Auto-completion**: Find all terms starting with a prefix
+- **Browse index**: Explore what terms exist in a specific index
+- **Find exact form**: Determine the exact spelling and form of author names or subjects
+- **Discovery**: See how many records exist for each term
+
+Example output shows:
+- The term value (e.g., "Goethe, Johann Wolfgang von")
+- Number of records for that term (e.g., 28,531 records)
+- Display form of the term (when available)
+
+**Note**: The scan operation may be temporarily unavailable due to server maintenance. In this case, you'll receive a clear diagnostic error message.
+
 #### Pagination
 
 Control the number of results and pagination:
@@ -182,6 +212,7 @@ Get help for any command:
 swb --help
 swb search --help
 swb isbn --help
+swb scan --help
 ```
 
 ## Development
@@ -285,11 +316,22 @@ with SWBClient() as client:
     # Search by ISSN
     response = client.search_by_issn("0028-0836")
 
+    # Scan index for terms (auto-completion)
+    scan_response = client.scan(
+        scan_clause="pica.per=Goe",
+        maximum_terms=10,
+        response_position=1
+    )
+
     # Process results
     for result in response.results:
         print(f"Title: {result.title}")
         print(f"Author: {result.author}")
         print(f"Year: {result.year}")
+
+    # Process scan results
+    for term in scan_response.terms:
+        print(f"{term.value}: {term.number_of_records} records")
 ```
 
 ### Search Response
@@ -315,6 +357,23 @@ The `SearchResult` object contains:
 - `isbn` - ISBN number
 - `raw_data` - Raw XML data
 - `format` - Record format
+
+### Scan Response
+
+The `ScanResponse` object contains:
+
+- `terms` - List of `ScanTerm` objects
+- `scan_clause` - Original scan clause used
+- `response_position` - Starting position in the term list
+
+### Scan Term
+
+The `ScanTerm` object contains:
+
+- `value` - The term value (e.g., "Goethe, Johann Wolfgang von")
+- `number_of_records` - Number of records for this term
+- `display_term` - Display form of the term (optional, may be None)
+- `extra_data` - Additional term data (optional, may be None)
 
 ## SRU API Reference
 

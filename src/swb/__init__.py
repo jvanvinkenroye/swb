@@ -7,6 +7,8 @@ __license__ = "MIT"
 from swb.api import SWBClient
 from swb.models import (
     RecordFormat,
+    ScanResponse,
+    ScanTerm,
     SearchIndex,
     SearchResponse,
     SearchResult,
@@ -17,6 +19,8 @@ from swb.models import (
 __all__ = [
     "SWBClient",
     "RecordFormat",
+    "ScanResponse",
+    "ScanTerm",
     "SearchIndex",
     "SearchResponse",
     "SearchResult",

@@ -255,3 +255,80 @@ def test_search_with_sorting_ascending(
     assert call_args is not None
     assert call_args.kwargs["sort_by"] == SortBy.AUTHOR
     assert call_args.kwargs["sort_order"] == SortOrder.ASCENDING
+
+
+@patch("swb.cli.SWBClient")
+def test_scan_command(mock_client_class: Mock, runner: CliRunner) -> None:
+    """Test scan command."""
+    from swb.models import ScanResponse, ScanTerm
+
+    mock_scan_response = ScanResponse(
+        terms=[
+            ScanTerm(value="Goethe, Johann Wolfgang von", number_of_records=28531),
+            ScanTerm(value="Goebbels, Joseph", number_of_records=45),
+            ScanTerm(value="Goebel, Klaus", number_of_records=12),
+        ],
+        scan_clause="pica.per=Goe",
+    )
+
+    mock_client = Mock()
+    mock_client.scan.return_value = mock_scan_response
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
+    mock_client_class.return_value = mock_client
+
+    result = runner.invoke(cli, ["scan", "pica.per=Goe"])
+
+    assert result.exit_code == 0
+    assert "Goethe, Johann Wolfgang von" in result.output
+    assert "28531" in result.output
+    mock_client.scan.assert_called_once()
+
+
+@patch("swb.cli.SWBClient")
+def test_scan_with_options(mock_client_class: Mock, runner: CliRunner) -> None:
+    """Test scan command with options."""
+    from swb.models import ScanResponse, ScanTerm
+
+    mock_scan_response = ScanResponse(
+        terms=[
+            ScanTerm(value="Python programming", number_of_records=100),
+        ],
+        scan_clause="pica.tit=Python",
+    )
+
+    mock_client = Mock()
+    mock_client.scan.return_value = mock_scan_response
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
+    mock_client_class.return_value = mock_client
+
+    result = runner.invoke(cli, ["scan", "pica.tit=Python", "--max", "5"])
+
+    assert result.exit_code == 0
+    call_args = mock_client.scan.call_args
+    assert call_args is not None
+    assert call_args.kwargs["scan_clause"] == "pica.tit=Python"
+    assert call_args.kwargs["maximum_terms"] == 5
+
+
+@patch("swb.cli.SWBClient")
+def test_scan_no_results(mock_client_class: Mock, runner: CliRunner) -> None:
+    """Test scan with no results."""
+    from swb.models import ScanResponse
+
+    mock_scan_response = ScanResponse(
+        terms=[],
+        scan_clause="pica.per=ZZZZZ",
+    )
+
+    mock_client = Mock()
+    mock_client.scan.return_value = mock_scan_response
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
+    mock_client_class.return_value = mock_client
+
+    result = runner.invoke(cli, ["scan", "pica.per=ZZZZZ"])
+
+    assert result.exit_code == 0
+    assert "No terms found" in result.output

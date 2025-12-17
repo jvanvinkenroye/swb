@@ -91,3 +91,35 @@ class SearchResponse:
     def has_more(self) -> bool:
         """Check if there are more results available."""
         return self.next_record is not None and self.next_record <= self.total_results
+
+
+@dataclass
+class ScanTerm:
+    """Represents a single term from a scan operation.
+
+    Attributes:
+        value: The term value
+        number_of_records: Number of records containing this term
+        display_term: Human-readable display form of the term
+        extra_data: Additional term metadata
+    """
+
+    value: str
+    number_of_records: int
+    display_term: str | None = None
+    extra_data: str | None = None
+
+
+@dataclass
+class ScanResponse:
+    """Represents the response from an SRU scan operation.
+
+    Attributes:
+        terms: List of scan terms
+        scan_clause: Original scan clause
+        response_position: Position in the term list
+    """
+
+    terms: list[ScanTerm]
+    scan_clause: str
+    response_position: int = 1
