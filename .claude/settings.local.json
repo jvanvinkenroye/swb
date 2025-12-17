@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:swb.bsz-bw.de)",
+      "Bash(mkdir:*)",
+      "Bash(uv add:*)",
+      "Bash(uv pip install:*)",
+      "Bash(swb --help:*)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(swb search:*)",
+      "Bash(pytest:*)",
+      "Bash(ruff check:*)",
+      "Bash(mypy:*)",
+      "Bash(python examples/basic_usage.py:*)",
+      "Bash(make help:*)",
+      "Bash(make all:*)",
+      "Bash(git add:*)"
+    ]
+  },
+  "sandbox": {
+    "enabled": false,
+    "autoAllowBashIfSandboxed": false
+  }
+}

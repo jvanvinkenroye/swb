@@ -1,0 +1,151 @@
+"""Tests for the SRU API client."""
+
+from unittest.mock import Mock, patch
+
+import pytest
+import requests
+
+from swb.api import SWBClient
+from swb.models import RecordFormat, SearchIndex
+
+
+@pytest.fixture
+def client() -> SWBClient:
+    """Create a test client instance."""
+    return SWBClient()
+
+
+def test_client_initialization() -> None:
+    """Test client initialization with defaults."""
+    client = SWBClient()
+    assert client.base_url == SWBClient.DEFAULT_BASE_URL
+    assert client.timeout == 30
+
+
+def test_client_custom_url() -> None:
+    """Test client initialization with custom URL."""
+    custom_url = "https://example.com/sru"
+    client = SWBClient(base_url=custom_url)
+    assert client.base_url == custom_url
+
+
+def test_client_context_manager() -> None:
+    """Test client as context manager."""
+    with SWBClient() as client:
+        assert isinstance(client, SWBClient)
+        assert client.session is not None
+
+
+def test_search_query_building(client: SWBClient) -> None:
+    """Test CQL query building with search index."""
+    with patch.object(client.session, "get") as mock_get:
+        # Create a mock response
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>0</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        # Test simple search with index
+        client.search("Python", index=SearchIndex.TITLE)
+
+        # Verify the query parameter
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+        assert params["query"] == 'pica.tit="Python"'
+
+
+def test_search_isbn_cleaning(client: SWBClient) -> None:
+    """Test ISBN number cleaning."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>0</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        # Search with formatted ISBN
+        client.search_by_isbn("978-3-16-148410-0")
+
+        # Verify hyphens were removed
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+        assert "9783161484100" in params["query"]
+
+
+def test_search_error_handling(client: SWBClient) -> None:
+    """Test error handling for failed requests."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_get.side_effect = requests.RequestException("Network error")
+
+        with pytest.raises(requests.RequestException):
+            client.search("test query")
+
+
+def test_parse_invalid_xml(client: SWBClient) -> None:
+    """Test handling of invalid XML responses."""
+    with pytest.raises(ValueError, match="Invalid XML response"):
+        client._parse_response("not valid xml", "query", RecordFormat.MARCXML)
+
+
+def test_parse_empty_response(client: SWBClient) -> None:
+    """Test parsing response with no results."""
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+    <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+        <numberOfRecords>0</numberOfRecords>
+    </searchRetrieveResponse>"""
+
+    response = client._parse_response(xml_response, "test query", RecordFormat.MARCXML)
+
+    assert response.total_results == 0
+    assert len(response.results) == 0
+    assert response.next_record is None
+
+
+def test_parse_marcxml_record(client: SWBClient) -> None:
+    """Test parsing a MARCXML record."""
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+    <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+        <numberOfRecords>1</numberOfRecords>
+        <records>
+            <record>
+                <recordData>
+                    <record xmlns="http://www.loc.gov/MARC21/slim">
+                        <controlfield tag="001">123456</controlfield>
+                        <datafield tag="245" ind1="1" ind2="0">
+                            <subfield code="a">Test Title</subfield>
+                        </datafield>
+                        <datafield tag="100" ind1="1" ind2=" ">
+                            <subfield code="a">Test Author</subfield>
+                        </datafield>
+                        <datafield tag="264" ind1=" " ind2="1">
+                            <subfield code="c">2023</subfield>
+                            <subfield code="b">Test Publisher</subfield>
+                        </datafield>
+                        <datafield tag="020" ind1=" " ind2=" ">
+                            <subfield code="a">978-3-16-148410-0</subfield>
+                        </datafield>
+                    </record>
+                </recordData>
+            </record>
+        </records>
+    </searchRetrieveResponse>"""
+
+    response = client._parse_response(xml_response, "test query", RecordFormat.MARCXML)
+
+    assert response.total_results == 1
+    assert len(response.results) == 1
+
+    result = response.results[0]
+    assert result.record_id == "123456"
+    assert result.title == "Test Title"
+    assert result.author == "Test Author"
+    assert result.year == "2023"
+    assert result.publisher == "Test Publisher"
+    assert result.isbn == "978-3-16-148410-0"
