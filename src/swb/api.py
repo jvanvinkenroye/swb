@@ -6,7 +6,14 @@ from types import TracebackType
 import requests
 from lxml import etree
 
-from swb.models import RecordFormat, SearchIndex, SearchResponse, SearchResult
+from swb.models import (
+    RecordFormat,
+    SearchIndex,
+    SearchResponse,
+    SearchResult,
+    SortBy,
+    SortOrder,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +70,8 @@ class SWBClient:
         start_record: int = 1,
         maximum_records: int = 10,
         index: SearchIndex | None = None,
+        sort_by: SortBy | None = None,
+        sort_order: SortOrder = SortOrder.DESCENDING,
     ) -> SearchResponse:
         """Search the SWB catalog using CQL query syntax.
 
@@ -73,6 +82,8 @@ class SWBClient:
             maximum_records: Maximum number of records to return.
             index: Search index to use. If provided, query is treated as
                   a simple keyword search in that index.
+            sort_by: Sort results by relevance, year, author, or title.
+            sort_order: Sort order (ascending or descending). Default is descending.
 
         Returns:
             SearchResponse containing the search results.
@@ -83,7 +94,12 @@ class SWBClient:
 
         Example:
             >>> client = SWBClient()
-            >>> results = client.search("Python", index=SearchIndex.TITLE)
+            >>> results = client.search(
+            ...     "Python",
+            ...     index=SearchIndex.TITLE,
+            ...     sort_by=SortBy.YEAR,
+            ...     sort_order=SortOrder.DESCENDING
+            ... )
             >>> print(f"Found {results.total_results} results")
         """
         # Build CQL query if index is specified
@@ -101,6 +117,12 @@ class SWBClient:
             "maximumRecords": maximum_records,
         }
 
+        # Add sorting if specified
+        # sortKeys format: <field>,,<order> where order: 0=descending, 1=ascending
+        if sort_by:
+            sort_order_value = "1" if sort_order == SortOrder.ASCENDING else "0"
+            params["sortKeys"] = f"{sort_by.value},,{sort_order_value}"
+
         logger.info(f"Searching SWB: {cql_query}")
         logger.debug(f"Request parameters: {params}")
 
@@ -111,6 +133,8 @@ class SWBClient:
                 timeout=self.timeout,
             )
             response.raise_for_status()
+            # Ensure UTF-8 encoding for proper handling of German umlauts
+            response.encoding = "utf-8"
         except requests.RequestException as e:
             logger.error(f"API request failed: {e}")
             raise
@@ -180,7 +204,12 @@ class SWBClient:
             ValueError: If the XML cannot be parsed or is invalid.
         """
         try:
-            root = etree.fromstring(xml_data.encode("utf-8"))
+            # Encode string to UTF-8 bytes for lxml parsing
+            # This preserves German umlauts and other special characters
+            xml_bytes = (
+                xml_data.encode("utf-8") if isinstance(xml_data, str) else xml_data
+            )
+            root = etree.fromstring(xml_bytes)
         except etree.XMLSyntaxError as e:
             logger.error(f"Failed to parse XML response: {e}")
             raise ValueError(f"Invalid XML response: {e}") from e

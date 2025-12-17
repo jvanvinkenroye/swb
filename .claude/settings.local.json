@@ -15,7 +15,12 @@
       "Bash(python examples/basic_usage.py:*)",
       "Bash(make help:*)",
       "Bash(make all:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(gh repo create:*)",
+      "Bash(gh issue create:*)",
+      "WebFetch(domain:wiki.k10plus.de)",
+      "Bash(gh issue list:*)"
     ]
   },
   "sandbox": {

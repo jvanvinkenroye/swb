@@ -86,6 +86,34 @@ Available formats:
 - `dc` - Dublin Core
 - `isbd` - International Standard Bibliographic Description
 
+#### Sorting
+
+Sort search results by different criteria:
+
+```bash
+# Sort by year (newest first)
+swb search "Python" --sort-by year --sort-order descending
+
+# Sort by year (oldest first)
+swb search "Python" --sort-by year --sort-order ascending
+
+# Sort by author
+swb search "Python" --sort-by author
+
+# Sort by title
+swb search "Machine Learning" --sort-by title
+```
+
+Available sort options:
+- `relevance` - Sort by relevance ranking
+- `year` - Sort by publication year
+- `author` - Sort by author name
+- `title` - Sort by title
+
+Sort order:
+- `descending` (default) - Newest/Z-A
+- `ascending` - Oldest/A-Z
+
 #### Pagination
 
 Control the number of results and pagination:
@@ -230,7 +258,7 @@ swb/
 The main API client class:
 
 ```python
-from swb import SWBClient, SearchIndex, RecordFormat
+from swb import SWBClient, SearchIndex, RecordFormat, SortBy, SortOrder
 
 # Create client
 with SWBClient() as client:
@@ -240,6 +268,15 @@ with SWBClient() as client:
         index=SearchIndex.TITLE,
         record_format=RecordFormat.MARCXML,
         maximum_records=10
+    )
+
+    # Search with sorting
+    response = client.search(
+        "Machine Learning",
+        index=SearchIndex.TITLE,
+        sort_by=SortBy.YEAR,
+        sort_order=SortOrder.DESCENDING,
+        maximum_records=20
     )
 
     # Search by ISBN

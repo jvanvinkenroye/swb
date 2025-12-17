@@ -149,3 +149,114 @@ def test_parse_marcxml_record(client: SWBClient) -> None:
     assert result.year == "2023"
     assert result.publisher == "Test Publisher"
     assert result.isbn == "978-3-16-148410-0"
+
+
+def test_parse_marcxml_with_umlauts(client: SWBClient) -> None:
+    """Test parsing MARCXML with German umlauts (UTF-8 encoding)."""
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+    <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+        <numberOfRecords>1</numberOfRecords>
+        <records>
+            <record>
+                <recordData>
+                    <record xmlns="http://www.loc.gov/MARC21/slim">
+                        <controlfield tag="001">789012</controlfield>
+                        <datafield tag="245" ind1="1" ind2="0">
+                            <subfield code="a">Einführung in GitHub Copilot</subfield>
+                        </datafield>
+                        <datafield tag="100" ind1="1" ind2=" ">
+                            <subfield code="a">Schürmann, Tim</subfield>
+                        </datafield>
+                        <datafield tag="264" ind1=" " ind2="1">
+                            <subfield code="c">2026</subfield>
+                            <subfield code="b">O'Reilly Verlag</subfield>
+                        </datafield>
+                    </record>
+                </recordData>
+            </record>
+        </records>
+    </searchRetrieveResponse>"""
+
+    response = client._parse_response(xml_response, "test query", RecordFormat.MARCXML)
+
+    assert response.total_results == 1
+    assert len(response.results) == 1
+
+    result = response.results[0]
+    # Test that German umlauts are correctly preserved
+    assert result.title == "Einführung in GitHub Copilot"
+    assert result.author == "Schürmann, Tim"
+    assert result.publisher == "O'Reilly Verlag"
+    assert result.year == "2026"
+
+
+def test_search_with_sorting(client: SWBClient) -> None:
+    """Test search with sorting parameters."""
+    from swb.models import SortBy, SortOrder
+
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>0</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_response.encoding = "utf-8"
+        mock_get.return_value = mock_response
+
+        # Test sorting by year descending
+        client.search(
+            "Python",
+            sort_by=SortBy.YEAR,
+            sort_order=SortOrder.DESCENDING,
+        )
+
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+        assert "sortKeys" in params
+        assert params["sortKeys"] == "year,,0"  # 0 = descending
+
+        # Test sorting by year ascending
+        client.search(
+            "Python",
+            sort_by=SortBy.YEAR,
+            sort_order=SortOrder.ASCENDING,
+        )
+
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+        assert params["sortKeys"] == "year,,1"  # 1 = ascending
+
+        # Test sorting by author
+        client.search(
+            "Python",
+            sort_by=SortBy.AUTHOR,
+            sort_order=SortOrder.DESCENDING,
+        )
+
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+        assert params["sortKeys"] == "author,,0"
+
+
+def test_search_without_sorting(client: SWBClient) -> None:
+    """Test that sortKeys is not added when sorting is not specified."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>0</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_response.encoding = "utf-8"
+        mock_get.return_value = mock_response
+
+        client.search("Python")
+
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+        assert "sortKeys" not in params

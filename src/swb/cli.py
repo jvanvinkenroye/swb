@@ -12,7 +12,7 @@ from rich.table import Table
 from rich.text import Text
 
 from swb.api import SWBClient
-from swb.models import RecordFormat, SearchIndex, SearchResponse
+from swb.models import RecordFormat, SearchIndex, SearchResponse, SortBy, SortOrder
 
 console = Console()
 console_err = Console(stderr=True)
@@ -221,6 +221,17 @@ def cli(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     type=str,
     help="Custom SRU endpoint URL.",
 )
+@click.option(
+    "--sort-by",
+    type=click.Choice(["relevance", "year", "author", "title"], case_sensitive=False),
+    help="Sort results by relevance, year, author, or title.",
+)
+@click.option(
+    "--sort-order",
+    type=click.Choice(["ascending", "descending"], case_sensitive=False),
+    default="descending",
+    help="Sort order (ascending or descending).",
+)
 @click.pass_context
 def search(
     ctx: click.Context,
@@ -232,6 +243,8 @@ def search(
     raw: bool,
     output: Path | None,
     url: str | None,
+    sort_by: str | None,
+    sort_order: str,
 ) -> None:
     """Search the SWB catalog.
 
@@ -249,12 +262,18 @@ def search(
         # Convert string arguments to enums
         search_index = SearchIndex[index.upper()] if index else None
         fmt = RecordFormat[record_format.upper()]
+        sort_by_enum = SortBy[sort_by.upper()] if sort_by else None
+        sort_order_enum = SortOrder[sort_order.upper()]
 
         with SWBClient(base_url=url) as client:
             if not ctx.obj.get("quiet"):
                 console.print(f"[bold]Searching for:[/bold] {query}")
                 if search_index:
                     console.print(f"[bold]Index:[/bold] {search_index.name}")
+                if sort_by_enum:
+                    console.print(
+                        f"[bold]Sort:[/bold] {sort_by_enum.name} ({sort_order_enum.name})"
+                    )
                 console.print()
 
             response = client.search(
@@ -263,6 +282,8 @@ def search(
                 record_format=fmt,
                 start_record=start_record,
                 maximum_records=maximum_records,
+                sort_by=sort_by_enum,
+                sort_order=sort_order_enum,
             )
 
             display_results(response, show_raw=raw, output_file=output)

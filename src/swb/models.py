@@ -28,6 +28,22 @@ class SearchIndex(str, Enum):
     KEYWORD = "pica.woe"
 
 
+class SortBy(str, Enum):
+    """Available sort options for search results."""
+
+    RELEVANCE = "relevance"
+    YEAR = "year"
+    AUTHOR = "author"
+    TITLE = "title"
+
+
+class SortOrder(str, Enum):
+    """Sort order options."""
+
+    ASCENDING = "ascending"
+    DESCENDING = "descending"
+
+
 @dataclass
 class SearchResult:
     """Represents a single search result from the SWB API.

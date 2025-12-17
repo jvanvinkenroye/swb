@@ -200,3 +200,58 @@ def test_search_quiet_mode(
     assert result.exit_code == 0
     # Should not contain search summary in quiet mode
     assert "Searching for:" not in result.output
+
+
+@patch("swb.cli.SWBClient")
+def test_search_with_sorting(
+    mock_client_class: Mock,
+    runner: CliRunner,
+    mock_search_response: SearchResponse,
+) -> None:
+    """Test search with sorting options."""
+    from swb.models import SortBy, SortOrder
+
+    mock_client = Mock()
+    mock_client.search.return_value = mock_search_response
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
+    mock_client_class.return_value = mock_client
+
+    result = runner.invoke(
+        cli, ["search", "Python", "--sort-by", "year", "--sort-order", "descending"]
+    )
+
+    assert result.exit_code == 0
+    assert "Sort: YEAR (DESCENDING)" in result.output
+
+    # Verify the client was called with correct sorting parameters
+    call_args = mock_client.search.call_args
+    assert call_args is not None
+    assert call_args.kwargs["sort_by"] == SortBy.YEAR
+    assert call_args.kwargs["sort_order"] == SortOrder.DESCENDING
+
+
+@patch("swb.cli.SWBClient")
+def test_search_with_sorting_ascending(
+    mock_client_class: Mock,
+    runner: CliRunner,
+    mock_search_response: SearchResponse,
+) -> None:
+    """Test search with ascending sort order."""
+    from swb.models import SortBy, SortOrder
+
+    mock_client = Mock()
+    mock_client.search.return_value = mock_search_response
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
+    mock_client_class.return_value = mock_client
+
+    result = runner.invoke(
+        cli, ["search", "Python", "--sort-by", "author", "--sort-order", "ascending"]
+    )
+
+    assert result.exit_code == 0
+    call_args = mock_client.search.call_args
+    assert call_args is not None
+    assert call_args.kwargs["sort_by"] == SortBy.AUTHOR
+    assert call_args.kwargs["sort_order"] == SortOrder.ASCENDING

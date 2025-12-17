@@ -5,7 +5,14 @@ __author__ = "Your Name"
 __license__ = "MIT"
 
 from swb.api import SWBClient
-from swb.models import RecordFormat, SearchIndex, SearchResponse, SearchResult
+from swb.models import (
+    RecordFormat,
+    SearchIndex,
+    SearchResponse,
+    SearchResult,
+    SortBy,
+    SortOrder,
+)
 
 __all__ = [
     "SWBClient",
@@ -13,4 +20,6 @@ __all__ = [
     "SearchIndex",
     "SearchResponse",
     "SearchResult",
+    "SortBy",
+    "SortOrder",
 ]
