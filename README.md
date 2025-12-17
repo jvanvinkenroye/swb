@@ -86,11 +86,14 @@ swb search "Python" --format turbomarc
 
 Available formats:
 - `marcxml` (default) - MARC 21 XML format
+- `marcxml-legacy` - MARC 21 XML Legacy format
 - `turbomarc` - TurboMARC (optimized XML for MARC records)
 - `mods` - Metadata Object Description Schema
+- `mods36` - MODS version 3.6
 - `picaxml` - PICA XML format
 - `dc` - Dublin Core
 - `isbd` - International Standard Bibliographic Description
+- `mads` - Metadata Authority Description Schema
 
 #### Sorting
 
@@ -398,6 +401,26 @@ with SWBClient() as client:
         "Python",
         index=SearchIndex.TITLE,
         record_format=RecordFormat.TURBOMARC,
+        maximum_records=10
+    )
+
+    # Search with additional formats
+    response = client.search(
+        "Python",
+        index=SearchIndex.TITLE,
+        record_format=RecordFormat.MARCXML_LEGACY,
+        maximum_records=10
+    )
+    response = client.search(
+        "Python",
+        index=SearchIndex.TITLE,
+        record_format=RecordFormat.MODS36,
+        maximum_records=10
+    )
+    response = client.search(
+        "Python",
+        index=SearchIndex.TITLE,
+        record_format=RecordFormat.MADS,
         maximum_records=10
     )
 

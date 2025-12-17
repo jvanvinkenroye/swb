@@ -814,3 +814,115 @@ def test_search_related_with_packing(client: SWBClient) -> None:
         assert call_args is not None
         params = call_args.kwargs["params"]
         assert params["recordPacking"] == "string"
+
+
+def test_parse_marcxml_legacy_record(client: SWBClient) -> None:
+    """Test parsing a MARCXML Legacy record (uses same parser as MARCXML)."""
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+    <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+        <numberOfRecords>1</numberOfRecords>
+        <records>
+            <record>
+                <recordData>
+                    <record xmlns="http://www.loc.gov/MARC21/slim">
+                        <controlfield tag="001">654321</controlfield>
+                        <datafield tag="245" ind1="1" ind2="0">
+                            <subfield code="a">Legacy Title</subfield>
+                        </datafield>
+                        <datafield tag="100" ind1="1" ind2=" ">
+                            <subfield code="a">Legacy Author</subfield>
+                        </datafield>
+                        <datafield tag="264" ind1=" " ind2="1">
+                            <subfield code="c">2020</subfield>
+                        </datafield>
+                    </record>
+                </recordData>
+            </record>
+        </records>
+    </searchRetrieveResponse>"""
+
+    response = client._parse_response(
+        xml_response, "test query", RecordFormat.MARCXML_LEGACY
+    )
+
+    assert response.total_results == 1
+    assert len(response.results) == 1
+
+    result = response.results[0]
+    assert result.record_id == "654321"
+    assert result.title == "Legacy Title"
+    assert result.author == "Legacy Author"
+    assert result.year == "2020"
+    assert result.format == RecordFormat.MARCXML_LEGACY
+
+
+def test_parse_mods36_record(client: SWBClient) -> None:
+    """Test parsing a MODS 3.6 record (uses same parser as MODS)."""
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+    <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+        <numberOfRecords>1</numberOfRecords>
+        <records>
+            <record>
+                <recordData>
+                    <mods xmlns="http://www.loc.gov/mods/v3">
+                        <titleInfo>
+                            <title>MODS 3.6 Title</title>
+                        </titleInfo>
+                        <name type="personal">
+                            <namePart>MODS 3.6 Author</namePart>
+                        </name>
+                        <originInfo>
+                            <dateIssued>2021</dateIssued>
+                        </originInfo>
+                    </mods>
+                </recordData>
+            </record>
+        </records>
+    </searchRetrieveResponse>"""
+
+    response = client._parse_response(
+        xml_response, "test query", RecordFormat.MODS36
+    )
+
+    assert response.total_results == 1
+    assert len(response.results) == 1
+
+    result = response.results[0]
+    assert result.title == "MODS 3.6 Title"
+    assert result.author == "MODS 3.6 Author"
+    assert result.year == "2021"
+    assert result.format == RecordFormat.MODS36
+
+
+def test_parse_mads_record(client: SWBClient) -> None:
+    """Test parsing a MADS record (returns raw data only)."""
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+    <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+        <numberOfRecords>1</numberOfRecords>
+        <records>
+            <record>
+                <recordData>
+                    <mads xmlns="http://www.loc.gov/mads/v2">
+                        <authority>
+                            <name type="personal">
+                                <namePart>Test Authority</namePart>
+                            </name>
+                        </authority>
+                    </mads>
+                </recordData>
+            </record>
+        </records>
+    </searchRetrieveResponse>"""
+
+    response = client._parse_response(
+        xml_response, "test query", RecordFormat.MADS
+    )
+
+    assert response.total_results == 1
+    assert len(response.results) == 1
+
+    result = response.results[0]
+    # MADS format returns raw data without parsing specific fields
+    assert result.raw_data is not None
+    assert "mads" in result.raw_data.lower()
+    assert result.format == RecordFormat.MADS

@@ -499,30 +499,38 @@ class SWBClient:
 
         # Parse based on format
         if record_format == RecordFormat.MARCXML:
-            return self._parse_marcxml(record_data_elem, raw_data)
+            return self._parse_marcxml(record_data_elem, raw_data, record_format)
+        elif record_format == RecordFormat.MARCXML_LEGACY:
+            # Legacy MARCXML uses same structure as MARCXML
+            return self._parse_marcxml(record_data_elem, raw_data, record_format)
         elif record_format == RecordFormat.TURBOMARC:
             return self._parse_turbomarc(record_data_elem, raw_data)
         elif record_format == RecordFormat.MODS:
-            return self._parse_mods(record_data_elem, raw_data)
+            return self._parse_mods(record_data_elem, raw_data, record_format)
+        elif record_format == RecordFormat.MODS36:
+            # MODS 3.6 uses same structure as MODS
+            return self._parse_mods(record_data_elem, raw_data, record_format)
         else:
-            # For other formats, just return raw data
+            # For other formats (MADS, etc.), just return raw data
             return SearchResult(raw_data=raw_data, format=record_format)
 
     def _parse_marcxml(
         self,
         record_elem: etree._Element,
         raw_data: str,
+        record_format: RecordFormat = RecordFormat.MARCXML,
     ) -> SearchResult:
         """Parse MARCXML formatted record.
 
         Args:
             record_elem: XML element containing MARC data.
             raw_data: Raw XML string.
+            record_format: Record format to use (MARCXML or MARCXML_LEGACY).
 
         Returns:
             Parsed SearchResult.
         """
-        result = SearchResult(raw_data=raw_data, format=RecordFormat.MARCXML)
+        result = SearchResult(raw_data=raw_data, format=record_format)
 
         # Extract record ID (MARC 001)
         controlfield_001 = record_elem.find(
@@ -662,17 +670,19 @@ class SWBClient:
         self,
         record_elem: etree._Element,
         raw_data: str,
+        record_format: RecordFormat = RecordFormat.MODS,
     ) -> SearchResult:
         """Parse MODS formatted record.
 
         Args:
             record_elem: XML element containing MODS data.
             raw_data: Raw XML string.
+            record_format: Record format to use (MODS or MODS36).
 
         Returns:
             Parsed SearchResult.
         """
-        result = SearchResult(raw_data=raw_data, format=RecordFormat.MODS)
+        result = SearchResult(raw_data=raw_data, format=record_format)
 
         # Extract title
         title_elem = record_elem.find(

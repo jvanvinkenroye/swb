@@ -8,11 +8,14 @@ class RecordFormat(str, Enum):
     """Supported record formats for SRU queries."""
 
     MARCXML = "marcxml"
+    MARCXML_LEGACY = "marcxml-legacy"
     MODS = "mods"
+    MODS36 = "mods36"
     PICA = "picaxml"
     DUBLIN_CORE = "dc"
     ISBD = "isbd"
     TURBOMARC = "turbomarc"
+    MADS = "mads"
 
 
 class SearchIndex(str, Enum):
