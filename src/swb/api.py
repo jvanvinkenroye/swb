@@ -11,6 +11,8 @@ from swb.models import (
     ExplainResponse,
     IndexInfo,
     RecordFormat,
+    RecordType,
+    RelationType,
     ScanResponse,
     ScanTerm,
     SchemaInfo,
@@ -295,6 +297,77 @@ class SWBClient:
             raise
 
         return self._parse_explain_response(response.text)
+
+    def search_related(
+        self,
+        ppn: str,
+        relation_type: RelationType,
+        record_type: RecordType = RecordType.BIBLIOGRAPHIC,
+        record_format: RecordFormat = RecordFormat.MARCXML,
+        start_record: int = 1,
+        maximum_records: int = 10,
+        sort_by: SortBy | None = None,
+        sort_order: SortOrder = SortOrder.DESCENDING,
+    ) -> SearchResponse:
+        """Search for records related to a specific publication (band/linking search).
+
+        This method is useful for finding related publications in multi-volume works,
+        series, or hierarchical bibliographic relationships. It uses K10plus-specific
+        search attributes to retrieve linked records.
+
+        Args:
+            ppn: PPN (PICA Production Number) of the parent record to find related
+                records for.
+            relation_type: Type of relationship to search for (e.g., parent, child,
+                family, related, thesaurus).
+            record_type: Type of records to retrieve (bibliographic or authority).
+                Default is bibliographic records.
+            record_format: Desired format for the results.
+            start_record: Position of first record to return (1-based).
+            maximum_records: Maximum number of records to return.
+            sort_by: Sort results by relevance, year, author, or title.
+            sort_order: Sort order (ascending or descending). Default is descending.
+
+        Returns:
+            SearchResponse containing the related records.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+            ValueError: If the response cannot be parsed.
+
+        Example:
+            >>> client = SWBClient()
+            >>> # Find all child records (volumes) of a multi-volume work
+            >>> results = client.search_related(
+            ...     ppn="267838395",
+            ...     relation_type=RelationType.CHILD,
+            ...     maximum_records=20
+            ... )
+            >>> print(f"Found {results.total_results} related records")
+        """
+        # Construct CQL query using K10plus band search attributes:
+        # - pica.1049: Control number (PPN) linking
+        # - pica.1045: Relationship type (fam, rel-bt, rel-nt, rel-rt, rel-tt)
+        # - pica.1001: Record type (b=bibliographic, n=authority)
+        cql_query = (
+            f'pica.1049="{ppn}" and '
+            f'pica.1045="{relation_type.value}" and '
+            f'pica.1001="{record_type.value}"'
+        )
+
+        logger.info(
+            f"Searching for related records: ppn={ppn}, "
+            f"relation={relation_type.value}, type={record_type.value}"
+        )
+
+        return self.search(
+            query=cql_query,
+            record_format=record_format,
+            start_record=start_record,
+            maximum_records=maximum_records,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
 
     def _parse_response(
         self,

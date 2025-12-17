@@ -8,6 +8,7 @@ A Python CLI client for querying the Südwestdeutscher Bibliotheksverbund (SWB) 
 - Support for multiple search indices (title, author, ISBN, ISSN, etc.)
 - Index scanning for auto-completion and browsing terms
 - Server capabilities discovery via SRU explain operation
+- Band/linking search for finding related publications in multi-volume works
 - Sort results by relevance, year, author, or title
 - Multiple output formats (MARCXML, TurboMARC, MODS, PICA, Dublin Core)
 - Rich terminal output with formatted tables
@@ -178,6 +179,40 @@ swb --verbose search "Python"
 swb --quiet search "Python"
 ```
 
+### Band/Linking Search (Related Publications)
+
+Search for records related to a specific publication, useful for multi-volume works and series:
+
+```bash
+# Find all volumes (child records) of a multi-volume work
+swb related 267838395 --relation-type child
+
+# Find the parent record of a volume
+swb related 123456789 --relation-type parent
+
+# Find entire family of related records
+swb related 267838395 --relation-type family --max 50
+
+# Find related records (non-hierarchical)
+swb related 111222333 --relation-type related
+
+# Find thesaurus-related records
+swb related 444555666 --relation-type thesaurus
+```
+
+Available relationship types:
+- `child` - Find child records (e.g., volumes in a multi-volume work)
+- `parent` - Find parent records (e.g., the main entry for a volume)
+- `family` - Find all related records in the family
+- `related` - Find non-hierarchical related records
+- `thesaurus` - Find thesaurus-related records
+
+You can also specify the record type:
+```bash
+# Search for related authority records
+swb related 111222333 --relation-type related --record-type authority
+```
+
 ### CQL Queries
 
 Use full CQL syntax for complex queries:
@@ -235,6 +270,7 @@ Get help for any command:
 swb --help
 swb search --help
 swb isbn --help
+swb related --help
 swb scan --help
 swb explain --help
 ```
@@ -347,6 +383,30 @@ with SWBClient() as client:
 
     # Search by ISSN
     response = client.search_by_issn("0028-0836")
+
+    # Search for related records (band/linking search)
+    from swb import RelationType, RecordType
+
+    # Find child records (volumes) of a multi-volume work
+    related_response = client.search_related(
+        ppn="267838395",
+        relation_type=RelationType.CHILD,
+        maximum_records=20
+    )
+
+    # Find parent record
+    parent_response = client.search_related(
+        ppn="123456789",
+        relation_type=RelationType.PARENT,
+    )
+
+    # Find entire family of related records
+    family_response = client.search_related(
+        ppn="267838395",
+        relation_type=RelationType.FAMILY,
+        record_type=RecordType.BIBLIOGRAPHIC,
+        maximum_records=50
+    )
 
     # Scan index for terms (auto-completion)
     scan_response = client.scan(

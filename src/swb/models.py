@@ -45,6 +45,26 @@ class SortOrder(str, Enum):
     DESCENDING = "descending"
 
 
+class RelationType(str, Enum):
+    """Record relationship types for band/linking search.
+
+    Used to find related publications in multi-volume works.
+    """
+
+    FAMILY = "fam"  # Find entire family - all related records
+    PARENT = "rel-bt"  # Parent records (broader term)
+    CHILD = "rel-nt"  # Child records (narrower term)
+    RELATED = "rel-rt"  # Non-hierarchical related records
+    THESAURUS = "rel-tt"  # Thesaurus-related records
+
+
+class RecordType(str, Enum):
+    """Record types for filtering searches."""
+
+    BIBLIOGRAPHIC = "b"  # Bibliographic records (titles)
+    AUTHORITY = "n"  # Authority records (names, subjects)
+
+
 @dataclass
 class SearchResult:
     """Represents a single search result from the SWB API.

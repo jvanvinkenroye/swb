@@ -12,7 +12,15 @@ from rich.table import Table
 from rich.text import Text
 
 from swb.api import SWBClient
-from swb.models import RecordFormat, SearchIndex, SearchResponse, SortBy, SortOrder
+from swb.models import (
+    RecordFormat,
+    RecordType,
+    RelationType,
+    SearchIndex,
+    SearchResponse,
+    SortBy,
+    SortOrder,
+)
 
 console = Console()
 console_err = Console(stderr=True)
@@ -421,6 +429,155 @@ def issn(
     except Exception as e:
         console_err.print(f"[red]Error:[/red] {e}")
         logging.exception("ISSN search failed")
+        sys.exit(1)
+
+
+@cli.command()
+@click.argument("ppn")
+@click.option(
+    "--relation-type",
+    "-r",
+    type=click.Choice(
+        [rel.name.lower() for rel in RelationType],
+        case_sensitive=False,
+    ),
+    required=True,
+    help="Type of relationship (family, parent, child, related, thesaurus).",
+)
+@click.option(
+    "--record-type",
+    "-t",
+    type=click.Choice(
+        [rec.name.lower() for rec in RecordType],
+        case_sensitive=False,
+    ),
+    default="bibliographic",
+    help="Type of records to retrieve (bibliographic or authority).",
+)
+@click.option(
+    "--format",
+    "-f",
+    "record_format",
+    type=click.Choice(
+        [fmt.name.lower() for fmt in RecordFormat],
+        case_sensitive=False,
+    ),
+    default="marcxml",
+    help="Record format for results.",
+)
+@click.option(
+    "--max",
+    "-m",
+    "maximum_records",
+    type=int,
+    default=10,
+    help="Maximum number of records to retrieve.",
+)
+@click.option(
+    "--start-record",
+    "-s",
+    type=int,
+    default=1,
+    help="Starting record position (for pagination).",
+)
+@click.option(
+    "--raw",
+    is_flag=True,
+    help="Display raw XML data.",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(path_type=Path),
+    help="Save results to file.",
+)
+@click.option(
+    "--url",
+    type=str,
+    help="Custom SRU endpoint URL.",
+)
+@click.option(
+    "--sort-by",
+    type=click.Choice(["relevance", "year", "author", "title"], case_sensitive=False),
+    help="Sort results by relevance, year, author, or title.",
+)
+@click.option(
+    "--sort-order",
+    type=click.Choice(["ascending", "descending"], case_sensitive=False),
+    default="descending",
+    help="Sort order (ascending or descending).",
+)
+@click.pass_context
+def related(
+    ctx: click.Context,
+    ppn: str,
+    relation_type: str,
+    record_type: str,
+    record_format: str,
+    maximum_records: int,
+    start_record: int,
+    raw: bool,
+    output: Path | None,
+    url: str | None,
+    sort_by: str | None,
+    sort_order: str,
+) -> None:
+    """Search for records related to a specific publication (band/linking search).
+
+    PPN is the PICA Production Number of the parent record.
+
+    This command is useful for finding related publications in multi-volume works,
+    series, or hierarchical bibliographic relationships.
+
+    Examples:
+
+        Find all volumes (child records) of a multi-volume work:
+
+            swb related 267838395 --relation-type child
+
+        Find the parent record of a volume:
+
+            swb related 123456789 --relation-type parent
+
+        Find entire family of related records:
+
+            swb related 267838395 --relation-type family --max 50
+    """
+    try:
+        # Convert string arguments to enums
+        relation_type_enum = RelationType[relation_type.upper()]
+        record_type_enum = RecordType[record_type.upper()]
+        fmt = RecordFormat[record_format.upper()]
+        sort_by_enum = SortBy[sort_by.upper()] if sort_by else None
+        sort_order_enum = SortOrder[sort_order.upper()]
+
+        with SWBClient(base_url=url) as client:
+            if not ctx.obj.get("quiet"):
+                console.print(f"[bold]Searching for records related to PPN:[/bold] {ppn}")
+                console.print(f"[bold]Relation Type:[/bold] {relation_type_enum.name}")
+                console.print(f"[bold]Record Type:[/bold] {record_type_enum.name}")
+                if sort_by_enum:
+                    console.print(
+                        f"[bold]Sort:[/bold] {sort_by_enum.name} ({sort_order_enum.name})"
+                    )
+                console.print()
+
+            response = client.search_related(
+                ppn=ppn,
+                relation_type=relation_type_enum,
+                record_type=record_type_enum,
+                record_format=fmt,
+                start_record=start_record,
+                maximum_records=maximum_records,
+                sort_by=sort_by_enum,
+                sort_order=sort_order_enum,
+            )
+
+            display_results(response, show_raw=raw, output_file=output)
+
+    except Exception as e:
+        console_err.print(f"[red]Error:[/red] {e}")
+        logging.exception("Related records search failed")
         sys.exit(1)
 
 

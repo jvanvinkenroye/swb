@@ -6,7 +6,7 @@ import pytest
 import requests
 
 from swb.api import SWBClient
-from swb.models import RecordFormat, SearchIndex
+from swb.models import RecordFormat, RecordType, RelationType, SearchIndex
 
 
 @pytest.fixture
@@ -550,3 +550,173 @@ def test_explain_operation(client: SWBClient) -> None:
         assert response.schemas[0].name == "MARC21 XML"
         assert response.schemas[1].identifier == "mods"
         assert response.schemas[1].name == "MODS"
+
+
+def test_search_related_child_records(client: SWBClient) -> None:
+    """Test searching for child records (volumes) of a multi-volume work."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>5</numberOfRecords>
+            <records>
+                <record>
+                    <recordData>
+                        <record xmlns="http://www.loc.gov/MARC21/slim">
+                            <controlfield tag="001">123456</controlfield>
+                            <datafield tag="245" ind1="1" ind2="0">
+                                <subfield code="a">Volume 1</subfield>
+                            </datafield>
+                        </record>
+                    </recordData>
+                </record>
+            </records>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        # Search for child records
+        response = client.search_related(
+            ppn="267838395",
+            relation_type=RelationType.CHILD,
+            record_type=RecordType.BIBLIOGRAPHIC,
+        )
+
+        # Verify the query was constructed correctly
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+        assert params["query"] == 'pica.1049="267838395" and pica.1045="rel-nt" and pica.1001="b"'
+        assert params["operation"] == "searchRetrieve"
+
+        # Verify response
+        assert response.total_results == 5
+        assert len(response.results) == 1
+
+
+def test_search_related_parent_record(client: SWBClient) -> None:
+    """Test searching for parent record of a volume."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>1</numberOfRecords>
+            <records>
+                <record>
+                    <recordData>
+                        <record xmlns="http://www.loc.gov/MARC21/slim">
+                            <controlfield tag="001">987654</controlfield>
+                            <datafield tag="245" ind1="1" ind2="0">
+                                <subfield code="a">Parent Work</subfield>
+                            </datafield>
+                        </record>
+                    </recordData>
+                </record>
+            </records>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        # Search for parent record
+        response = client.search_related(
+            ppn="123456789",
+            relation_type=RelationType.PARENT,
+        )
+
+        # Verify the query was constructed correctly
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+        assert params["query"] == 'pica.1049="123456789" and pica.1045="rel-bt" and pica.1001="b"'
+
+        # Verify response
+        assert response.total_results == 1
+        assert len(response.results) == 1
+        assert response.results[0].title == "Parent Work"
+
+
+def test_search_related_family(client: SWBClient) -> None:
+    """Test searching for entire family of related records."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>10</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        # Search for entire family
+        response = client.search_related(
+            ppn="267838395",
+            relation_type=RelationType.FAMILY,
+            maximum_records=20,
+        )
+
+        # Verify the query was constructed correctly
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+        assert params["query"] == 'pica.1049="267838395" and pica.1045="fam" and pica.1001="b"'
+        assert params["maximumRecords"] == 20
+
+        # Verify response
+        assert response.total_results == 10
+
+
+def test_search_related_authority_records(client: SWBClient) -> None:
+    """Test searching for related authority records."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>3</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        # Search for related authority records
+        response = client.search_related(
+            ppn="111222333",
+            relation_type=RelationType.RELATED,
+            record_type=RecordType.AUTHORITY,
+        )
+
+        # Verify the query was constructed correctly
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+        assert params["query"] == 'pica.1049="111222333" and pica.1045="rel-rt" and pica.1001="n"'
+
+        # Verify response
+        assert response.total_results == 3
+
+
+def test_search_related_with_format(client: SWBClient) -> None:
+    """Test searching related records with specific format."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>2</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        # Search with MODS format
+        response = client.search_related(
+            ppn="444555666",
+            relation_type=RelationType.THESAURUS,
+            record_format=RecordFormat.MODS,
+        )
+
+        # Verify the query and format
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+        assert params["query"] == 'pica.1049="444555666" and pica.1045="rel-tt" and pica.1001="b"'
+        assert params["recordSchema"] == "mods"
+
+        # Verify response
+        assert response.total_results == 2
+        assert response.format == RecordFormat.MODS
