@@ -69,6 +69,25 @@ class RecordType(str, Enum):
 
 
 @dataclass
+class LibraryHolding:
+    """Represents library holding information for a record.
+
+    Attributes:
+        library_code: Library identifier code (e.g., DE-21, DE-15)
+        library_name: Human-readable library name
+        access_url: URL for accessing the resource at this library
+        access_note: Note about access restrictions or requirements
+        collection: Collection or database name
+    """
+
+    library_code: str
+    library_name: str | None = None
+    access_url: str | None = None
+    access_note: str | None = None
+    collection: str | None = None
+
+
+@dataclass
 class SearchResult:
     """Represents a single search result from the SWB API.
 
@@ -81,6 +100,7 @@ class SearchResult:
         isbn: ISBN number(s)
         raw_data: Raw XML data from the API
         format: Format of the record data
+        holdings: List of library holdings for this record
     """
 
     record_id: str | None = None
@@ -91,6 +111,12 @@ class SearchResult:
     isbn: str | None = None
     raw_data: str | None = None
     format: RecordFormat = RecordFormat.MARCXML
+    holdings: list[LibraryHolding] = None  # type: ignore
+
+    def __post_init__(self) -> None:
+        """Initialize mutable default values."""
+        if self.holdings is None:
+            self.holdings = []
 
 
 @dataclass

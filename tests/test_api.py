@@ -926,3 +926,152 @@ def test_parse_mads_record(client: SWBClient) -> None:
     assert result.raw_data is not None
     assert "mads" in result.raw_data.lower()
     assert result.format == RecordFormat.MADS
+
+
+def test_parse_holdings(client: SWBClient) -> None:
+    """Test parsing library holdings from MARC field 924."""
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+    <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+        <numberOfRecords>1</numberOfRecords>
+        <records>
+            <record>
+                <recordData>
+                    <record xmlns="http://www.loc.gov/MARC21/slim">
+                        <controlfield tag="001">123456789</controlfield>
+                        <datafield tag="245" ind1="0" ind2="0">
+                            <subfield code="a">Test Title</subfield>
+                        </datafield>
+                        <datafield tag="924" ind1="1" ind2=" ">
+                            <subfield code="b">DE-21</subfield>
+                            <subfield code="k">https://example.com/access</subfield>
+                            <subfield code="l">Campus access only</subfield>
+                            <subfield code="g">E-Book Collection</subfield>
+                        </datafield>
+                        <datafield tag="924" ind1="1" ind2=" ">
+                            <subfield code="b">DE-15</subfield>
+                            <subfield code="k">https://example.com/rostock</subfield>
+                            <subfield code="l">Online access</subfield>
+                        </datafield>
+                    </record>
+                </recordData>
+            </record>
+        </records>
+    </searchRetrieveResponse>"""
+
+    response = client._parse_response(xml_response, "test query", RecordFormat.MARCXML)
+
+    assert response.total_results == 1
+    assert len(response.results) == 1
+
+    result = response.results[0]
+    assert result.title == "Test Title"
+    assert len(result.holdings) == 2
+
+    # Check first holding
+    holding1 = result.holdings[0]
+    assert holding1.library_code == "DE-21"
+    assert holding1.library_name == "Universität Tübingen"
+    assert holding1.access_url == "https://example.com/access"
+    assert holding1.access_note == "Campus access only"
+    assert holding1.collection == "E-Book Collection"
+
+    # Check second holding
+    holding2 = result.holdings[1]
+    assert holding2.library_code == "DE-15"
+    assert holding2.library_name == "Universitätsbibliothek Rostock"
+    assert holding2.access_url == "https://example.com/rostock"
+    assert holding2.access_note == "Online access"
+    assert holding2.collection is None
+
+
+def test_parse_holdings_multiple_access_notes(client: SWBClient) -> None:
+    """Test parsing holdings with multiple access notes."""
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+    <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+        <numberOfRecords>1</numberOfRecords>
+        <records>
+            <record>
+                <recordData>
+                    <record xmlns="http://www.loc.gov/MARC21/slim">
+                        <controlfield tag="001">123456789</controlfield>
+                        <datafield tag="245" ind1="0" ind2="0">
+                            <subfield code="a">Test Title</subfield>
+                        </datafield>
+                        <datafield tag="924" ind1="1" ind2=" ">
+                            <subfield code="b">DE-Lg1</subfield>
+                            <subfield code="l">Online access</subfield>
+                            <subfield code="l">VPN required</subfield>
+                            <subfield code="l">Campus network only</subfield>
+                        </datafield>
+                    </record>
+                </recordData>
+            </record>
+        </records>
+    </searchRetrieveResponse>"""
+
+    response = client._parse_response(xml_response, "test query", RecordFormat.MARCXML)
+
+    result = response.results[0]
+    assert len(result.holdings) == 1
+
+    holding = result.holdings[0]
+    assert holding.library_code == "DE-Lg1"
+    assert holding.access_note == "Online access / VPN required / Campus network only"
+
+
+def test_parse_holdings_unknown_library(client: SWBClient) -> None:
+    """Test parsing holdings for unknown library code."""
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+    <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+        <numberOfRecords>1</numberOfRecords>
+        <records>
+            <record>
+                <recordData>
+                    <record xmlns="http://www.loc.gov/MARC21/slim">
+                        <controlfield tag="001">123456789</controlfield>
+                        <datafield tag="245" ind1="0" ind2="0">
+                            <subfield code="a">Test Title</subfield>
+                        </datafield>
+                        <datafield tag="924" ind1="1" ind2=" ">
+                            <subfield code="b">DE-UNKNOWN</subfield>
+                        </datafield>
+                    </record>
+                </recordData>
+            </record>
+        </records>
+    </searchRetrieveResponse>"""
+
+    response = client._parse_response(xml_response, "test query", RecordFormat.MARCXML)
+
+    result = response.results[0]
+    assert len(result.holdings) == 1
+
+    holding = result.holdings[0]
+    assert holding.library_code == "DE-UNKNOWN"
+    # Should use library code as name when not in mapping
+    assert holding.library_name == "DE-UNKNOWN"
+
+
+def test_parse_holdings_no_holdings(client: SWBClient) -> None:
+    """Test parsing record without holdings."""
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+    <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+        <numberOfRecords>1</numberOfRecords>
+        <records>
+            <record>
+                <recordData>
+                    <record xmlns="http://www.loc.gov/MARC21/slim">
+                        <controlfield tag="001">123456789</controlfield>
+                        <datafield tag="245" ind1="0" ind2="0">
+                            <subfield code="a">Test Title</subfield>
+                        </datafield>
+                    </record>
+                </recordData>
+            </record>
+        </records>
+    </searchRetrieveResponse>"""
+
+    response = client._parse_response(xml_response, "test query", RecordFormat.MARCXML)
+
+    result = response.results[0]
+    assert len(result.holdings) == 0

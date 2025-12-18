@@ -163,6 +163,49 @@ swb search "Python" --max 20
 swb search "Python" --start-record 11 --max 10
 ```
 
+#### Library Holdings
+
+Display library holdings information showing which libraries have the item and how to access it:
+
+```bash
+# Show holdings for an ISBN search
+swb isbn 978-3-17-025295-0 --holdings
+
+# Show holdings for a title search
+swb search "Sozialtraining für Menschen im Autismus-Spektrum" --holdings
+
+# Combine with other options
+swb search "Python programming" --index title --holdings --max 5
+```
+
+The `--holdings` option displays:
+- **Library locations**: Which institutions hold the item
+- **Collections**: Specific collections or call numbers
+- **Access information**:
+  - Online access URLs for electronic resources
+  - Access restrictions (VPN required, campus network only, etc.)
+  - Usage notes and availability
+
+**Example holdings output:**
+```
+Library Holdings:
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Library                      ┃ Collection      ┃ Access             ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ Universität Tübingen (DE-21) │ E-Book          │ Online Access      │
+│                              │ Kohlhammer      │ Campus/VPN only    │
+│ UB Rostock (DE-15)           │ N/A             │ Online Access      │
+└──────────────────────────────┴─────────────────┴────────────────────┘
+```
+
+**Available with:**
+- `swb search` - Search commands
+- `swb isbn` - ISBN searches
+- `swb issn` - ISSN searches
+- `swb related` - Related records
+
+**Note**: Holdings information is only available for records that include MARC field 924 (local library data). Not all records may have holdings information.
+
 #### Save Results to File
 
 Export search results:

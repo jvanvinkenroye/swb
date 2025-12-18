@@ -10,6 +10,7 @@ from swb.models import (
     DatabaseInfo,
     ExplainResponse,
     IndexInfo,
+    LibraryHolding,
     RecordFormat,
     RecordType,
     RelationType,
@@ -49,6 +50,24 @@ class SWBClient:
         "mods": "http://www.loc.gov/mods/v3",
         "dc": "http://purl.org/dc/elements/1.1/",
         "pica": "info:srw/schema/5/picaXML-v1.0",
+    }
+
+    # Library code to name mapping (commonly seen in SWB)
+    LIBRARY_NAMES = {
+        "DE-21": "Universität Tübingen",
+        "DE-15": "Universitätsbibliothek Rostock",
+        "DE-Ch1": "TU Chemnitz",
+        "DE-Frei129": "Pädagogische Hochschule Freiburg",
+        "DE-Lg1": "Pädagogische Hochschule Ludwigsburg",
+        "DE-747": "Hochschule Ravensburg-Weingarten",
+        "DE-752": "Kommunikations- und Informationszentrum Ulm",
+        "DE-751": "Thüringer Universitäts- und Landesbibliothek Jena",
+        "DE-Frei26": "PH Freiburg",
+        "DE-Zi4": "Pädagogische Hochschule Schwäbisch Gmünd",
+        "DE-953": "PH Weingarten",
+        "DE-Frei160": "Evangelische Hochschule Freiburg",
+        "DE-944": "HfWU Nürtingen-Geislingen",
+        "DE-31": "Badische Landesbibliothek Karlsruhe",
     }
 
     def __init__(
@@ -595,7 +614,83 @@ class SWBClient:
         if isbn_field is not None:
             result.isbn = isbn_field.text
 
+        # Extract library holdings (MARC 924)
+        result.holdings = self._parse_holdings(record_elem)
+
         return result
+
+    def _parse_holdings(self, record_elem: etree._Element) -> list[LibraryHolding]:
+        """Parse library holdings from MARC field 924.
+
+        Field 924 contains local library holdings information including:
+        - Library codes
+        - Access URLs
+        - Access notes/restrictions
+        - Collection information
+
+        Args:
+            record_elem: XML element containing MARC data.
+
+        Returns:
+            List of LibraryHolding objects.
+        """
+        holdings = []
+
+        # Find all field 924 entries
+        holding_fields = record_elem.findall(
+            ".//marc:datafield[@tag='924']",
+            namespaces=self.NAMESPACES,
+        )
+
+        for field in holding_fields:
+            # Extract library code (subfield b)
+            library_code_elem = field.find(
+                "marc:subfield[@code='b']",
+                namespaces=self.NAMESPACES,
+            )
+            if library_code_elem is None or not library_code_elem.text:
+                continue
+
+            library_code = library_code_elem.text.strip()
+
+            # Get library name from mapping or use code
+            library_name = self.LIBRARY_NAMES.get(library_code, library_code)
+
+            # Extract access URL (subfield k)
+            access_url_elem = field.find(
+                "marc:subfield[@code='k']",
+                namespaces=self.NAMESPACES,
+            )
+            access_url = access_url_elem.text.strip() if access_url_elem is not None and access_url_elem.text else None
+
+            # Extract access notes (subfield l) - can have multiple
+            access_notes = []
+            access_note_elems = field.findall(
+                "marc:subfield[@code='l']",
+                namespaces=self.NAMESPACES,
+            )
+            for note_elem in access_note_elems:
+                if note_elem.text:
+                    access_notes.append(note_elem.text.strip())
+            access_note = " / ".join(access_notes) if access_notes else None
+
+            # Extract collection name (subfield g)
+            collection_elem = field.find(
+                "marc:subfield[@code='g']",
+                namespaces=self.NAMESPACES,
+            )
+            collection = collection_elem.text.strip() if collection_elem is not None and collection_elem.text else None
+
+            holding = LibraryHolding(
+                library_code=library_code,
+                library_name=library_name,
+                access_url=access_url,
+                access_note=access_note,
+                collection=collection,
+            )
+            holdings.append(holding)
+
+        return holdings
 
     def _parse_turbomarc(
         self,

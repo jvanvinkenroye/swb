@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import click
+from rich import box
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.panel import Panel
@@ -52,6 +53,7 @@ def display_results(
     response: SearchResponse,
     show_raw: bool = False,
     output_file: Path | None = None,
+    show_holdings: bool = False,
 ) -> None:
     """Display search results in a formatted table.
 
@@ -59,6 +61,7 @@ def display_results(
         response: Search response containing results.
         show_raw: Whether to display raw XML data.
         output_file: Optional file path to save results.
+        show_holdings: Whether to display library holdings information.
     """
     if response.total_results == 0:
         console.print("[yellow]No results found.[/yellow]")
@@ -105,6 +108,17 @@ def display_results(
             output_lines.append(f"ISBN: {result.isbn or 'N/A'}")
             output_lines.append(f"Record ID: {result.record_id or 'N/A'}")
 
+            if show_holdings and result.holdings:
+                output_lines.append("\nLibrary Holdings:")
+                for holding in result.holdings:
+                    output_lines.append(f"\n  Library: {holding.library_name or holding.library_code}")
+                    if holding.collection:
+                        output_lines.append(f"  Collection: {holding.collection}")
+                    if holding.access_url:
+                        output_lines.append(f"  Access URL: {holding.access_url}")
+                    if holding.access_note:
+                        output_lines.append(f"  Access Note: {holding.access_note}")
+
             if show_raw and result.raw_data:
                 output_lines.append(f"\nRaw Data:\n{result.raw_data}")
 
@@ -117,6 +131,38 @@ def display_results(
             console.print(f"\n[bold]Record {idx} - Raw Data:[/bold]")
             if result.raw_data:
                 console.print(Panel(result.raw_data, border_style="dim"))
+
+    # Display holdings if requested
+    if show_holdings and not output_file:
+        for idx, result in enumerate(response.results, 1):
+            if result.holdings:
+                console.print(f"\n[bold]Record {idx} - Library Holdings:[/bold]")
+                holdings_table = Table(show_header=True, header_style="bold cyan", box=box.ROUNDED)
+                holdings_table.add_column("Library", style="green", no_wrap=False)
+                holdings_table.add_column("Collection", style="yellow")
+                holdings_table.add_column("Access", style="blue", no_wrap=False)
+
+                for holding in result.holdings:
+                    library_display = holding.library_name or holding.library_code
+                    if holding.library_name and holding.library_code != holding.library_name:
+                        library_display = f"{holding.library_name} ({holding.library_code})"
+
+                    access_info = []
+                    if holding.access_url:
+                        access_info.append(f"[link={holding.access_url}]Online Access[/link]")
+                    if holding.access_note:
+                        access_info.append(holding.access_note)
+                    access_display = "\n".join(access_info) if access_info else "N/A"
+
+                    holdings_table.add_row(
+                        library_display,
+                        holding.collection or "N/A",
+                        access_display,
+                    )
+
+                console.print(holdings_table)
+            else:
+                console.print(f"\n[dim]Record {idx} - No holdings information available[/dim]")
 
     # Show pagination info
     if response.has_more:
@@ -246,6 +292,11 @@ def cli(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     default="xml",
     help="Record packing mode (xml or string).",
 )
+@click.option(
+    "--holdings",
+    is_flag=True,
+    help="Display library holdings information.",
+)
 @click.pass_context
 def search(
     ctx: click.Context,
@@ -260,6 +311,7 @@ def search(
     sort_by: str | None,
     sort_order: str,
     packing: str,
+    holdings: bool,
 ) -> None:
     """Search the SWB catalog.
 
@@ -302,7 +354,7 @@ def search(
                 record_packing=packing,
             )
 
-            display_results(response, show_raw=raw, output_file=output)
+            display_results(response, show_raw=raw, output_file=output, show_holdings=holdings)
 
     except Exception as e:
         console_err.print(f"[red]Error:[/red] {e}")
@@ -345,6 +397,11 @@ def search(
     default="xml",
     help="Record packing mode (xml or string).",
 )
+@click.option(
+    "--holdings",
+    is_flag=True,
+    help="Display library holdings information.",
+)
 @click.pass_context
 def isbn(
     ctx: click.Context,
@@ -354,6 +411,7 @@ def isbn(
     output: Path | None,
     url: str | None,
     packing: str,
+    holdings: bool,
 ) -> None:
     """Search for a book by ISBN number.
 
@@ -376,7 +434,7 @@ def isbn(
             response = client.search_by_isbn(
                 isbn, record_format=fmt, record_packing=packing
             )
-            display_results(response, show_raw=raw, output_file=output)
+            display_results(response, show_raw=raw, output_file=output, show_holdings=holdings)
 
     except Exception as e:
         console_err.print(f"[red]Error:[/red] {e}")
@@ -419,6 +477,11 @@ def isbn(
     default="xml",
     help="Record packing mode (xml or string).",
 )
+@click.option(
+    "--holdings",
+    is_flag=True,
+    help="Display library holdings information.",
+)
 @click.pass_context
 def issn(
     ctx: click.Context,
@@ -428,6 +491,7 @@ def issn(
     output: Path | None,
     url: str | None,
     packing: str,
+    holdings: bool,
 ) -> None:
     """Search for a periodical by ISSN number.
 
@@ -450,7 +514,7 @@ def issn(
             response = client.search_by_issn(
                 issn, record_format=fmt, record_packing=packing
             )
-            display_results(response, show_raw=raw, output_file=output)
+            display_results(response, show_raw=raw, output_file=output, show_holdings=holdings)
 
     except Exception as e:
         console_err.print(f"[red]Error:[/red] {e}")
@@ -539,6 +603,11 @@ def issn(
     default="xml",
     help="Record packing mode (xml or string).",
 )
+@click.option(
+    "--holdings",
+    is_flag=True,
+    help="Display library holdings information.",
+)
 @click.pass_context
 def related(
     ctx: click.Context,
@@ -554,6 +623,7 @@ def related(
     sort_by: str | None,
     sort_order: str,
     packing: str,
+    holdings: bool,
 ) -> None:
     """Search for records related to a specific publication (band/linking search).
 
@@ -607,7 +677,7 @@ def related(
                 record_packing=packing,
             )
 
-            display_results(response, show_raw=raw, output_file=output)
+            display_results(response, show_raw=raw, output_file=output, show_holdings=holdings)
 
     except Exception as e:
         console_err.print(f"[red]Error:[/red] {e}")
