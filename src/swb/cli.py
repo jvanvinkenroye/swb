@@ -22,6 +22,7 @@ from swb.models import (
     SortBy,
     SortOrder,
 )
+from swb.profiles import PROFILES, get_profile
 
 console = Console()
 console_err = Console(stderr=True)
@@ -181,6 +182,30 @@ def display_results(
             console.print(f"[red]Failed to save results: {e}[/red]")
 
 
+def resolve_base_url(profile: str | None, url: str | None) -> str:
+    """Resolve the base URL from profile or custom URL.
+
+    Args:
+        profile: Profile name (e.g., 'swb', 'k10plus', 'dnb')
+        url: Custom SRU endpoint URL
+
+    Returns:
+        Base URL to use for the SWB client
+
+    Raises:
+        ValueError: If profile is unknown
+    """
+    if url:
+        # Custom URL takes precedence
+        return url
+    if profile:
+        # Resolve profile to URL
+        catalog_profile = get_profile(profile)
+        return catalog_profile.url
+    # Use default profile if neither provided
+    return get_profile("swb").url
+
+
 @click.group()
 @click.version_option(version="0.1.0")
 @click.option(
@@ -271,9 +296,15 @@ def cli(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     help="Save results to file.",
 )
 @click.option(
+    "--profile",
+    "-p",
+    type=click.Choice(list(PROFILES.keys()), case_sensitive=False),
+    help="Library catalog profile (swb, k10plus, gvk, dnb, bvb, hebis).",
+)
+@click.option(
     "--url",
     type=str,
-    help="Custom SRU endpoint URL.",
+    help="Custom SRU endpoint URL (overrides --profile).",
 )
 @click.option(
     "--sort-by",
@@ -307,6 +338,7 @@ def search(
     start_record: int,
     raw: bool,
     output: Path | None,
+    profile: str | None,
     url: str | None,
     sort_by: str | None,
     sort_order: str,
@@ -332,7 +364,8 @@ def search(
         sort_by_enum = SortBy[sort_by.upper()] if sort_by else None
         sort_order_enum = SortOrder[sort_order.upper()]
 
-        with SWBClient(base_url=url) as client:
+        base_url = resolve_base_url(profile, url)
+        with SWBClient(base_url=base_url) as client:
             if not ctx.obj.get("quiet"):
                 console.print(f"[bold]Searching for:[/bold] {query}")
                 if search_index:
@@ -387,9 +420,15 @@ def search(
     help="Save results to file.",
 )
 @click.option(
+    "--profile",
+    "-p",
+    type=click.Choice(list(PROFILES.keys()), case_sensitive=False),
+    help="Library catalog profile (swb, k10plus, gvk, dnb, bvb, hebis).",
+)
+@click.option(
     "--url",
     type=str,
-    help="Custom SRU endpoint URL.",
+    help="Custom SRU endpoint URL (overrides --profile).",
 )
 @click.option(
     "--packing",
@@ -409,6 +448,7 @@ def isbn(
     record_format: str,
     raw: bool,
     output: Path | None,
+    profile: str | None,
     url: str | None,
     packing: str,
     holdings: bool,
@@ -426,7 +466,8 @@ def isbn(
     try:
         fmt = RecordFormat[record_format.upper()]
 
-        with SWBClient(base_url=url) as client:
+        base_url = resolve_base_url(profile, url)
+        with SWBClient(base_url=base_url) as client:
             if not ctx.obj.get("quiet"):
                 console.print(f"[bold]Searching for ISBN:[/bold] {isbn}")
                 console.print()
@@ -467,9 +508,15 @@ def isbn(
     help="Save results to file.",
 )
 @click.option(
+    "--profile",
+    "-p",
+    type=click.Choice(list(PROFILES.keys()), case_sensitive=False),
+    help="Library catalog profile (swb, k10plus, gvk, dnb, bvb, hebis).",
+)
+@click.option(
     "--url",
     type=str,
-    help="Custom SRU endpoint URL.",
+    help="Custom SRU endpoint URL (overrides --profile).",
 )
 @click.option(
     "--packing",
@@ -489,6 +536,7 @@ def issn(
     record_format: str,
     raw: bool,
     output: Path | None,
+    profile: str | None,
     url: str | None,
     packing: str,
     holdings: bool,
@@ -506,7 +554,8 @@ def issn(
     try:
         fmt = RecordFormat[record_format.upper()]
 
-        with SWBClient(base_url=url) as client:
+        base_url = resolve_base_url(profile, url)
+        with SWBClient(base_url=base_url) as client:
             if not ctx.obj.get("quiet"):
                 console.print(f"[bold]Searching for ISSN:[/bold] {issn}")
                 console.print()
@@ -582,9 +631,15 @@ def issn(
     help="Save results to file.",
 )
 @click.option(
+    "--profile",
+    "-p",
+    type=click.Choice(list(PROFILES.keys()), case_sensitive=False),
+    help="Library catalog profile (swb, k10plus, gvk, dnb, bvb, hebis).",
+)
+@click.option(
     "--url",
     type=str,
-    help="Custom SRU endpoint URL.",
+    help="Custom SRU endpoint URL (overrides --profile).",
 )
 @click.option(
     "--sort-by",
@@ -619,6 +674,7 @@ def related(
     start_record: int,
     raw: bool,
     output: Path | None,
+    profile: str | None,
     url: str | None,
     sort_by: str | None,
     sort_order: str,
@@ -654,7 +710,8 @@ def related(
         sort_by_enum = SortBy[sort_by.upper()] if sort_by else None
         sort_order_enum = SortOrder[sort_order.upper()]
 
-        with SWBClient(base_url=url) as client:
+        base_url = resolve_base_url(profile, url)
+        with SWBClient(base_url=base_url) as client:
             if not ctx.obj.get("quiet"):
                 console.print(f"[bold]Searching for records related to PPN:[/bold] {ppn}")
                 console.print(f"[bold]Relation Type:[/bold] {relation_type_enum.name}")
@@ -712,6 +769,29 @@ def indices() -> None:
 
 
 @cli.command()
+def profiles() -> None:
+    """List available library catalog profiles."""
+    from swb.profiles import list_profiles
+
+    table = Table(title="Available Library Catalog Profiles", show_header=True)
+    table.add_column("Name", style="cyan", no_wrap=True)
+    table.add_column("Display Name", style="green")
+    table.add_column("Region", style="yellow")
+    table.add_column("Description", style="white")
+
+    for profile in list_profiles():
+        table.add_row(
+            profile.name,
+            profile.display_name,
+            profile.region,
+            profile.description,
+        )
+
+    console.print(table)
+    console.print("\n[dim]Use with: swb search \"query\" --profile <name>[/dim]")
+
+
+@cli.command()
 @click.argument("scan_clause")
 @click.option(
     "--max",
@@ -723,16 +803,21 @@ def indices() -> None:
 )
 @click.option(
     "--position",
-    "-p",
     "response_position",
     type=int,
     default=1,
     help="Starting position in the term list.",
 )
 @click.option(
+    "--profile",
+    "-p",
+    type=click.Choice(list(PROFILES.keys()), case_sensitive=False),
+    help="Library catalog profile (swb, k10plus, gvk, dnb, bvb, hebis).",
+)
+@click.option(
     "--url",
     type=str,
-    help="Custom SRU endpoint URL.",
+    help="Custom SRU endpoint URL (overrides --profile).",
 )
 @click.pass_context
 def scan(
@@ -740,6 +825,7 @@ def scan(
     scan_clause: str,
     maximum_terms: int,
     response_position: int,
+    profile: str | None,
     url: str | None,
 ) -> None:
     """Scan an index for terms (auto-completion and browsing).
@@ -761,7 +847,8 @@ def scan(
             swb scan "pica.sub=Machine Learning"
     """
     try:
-        with SWBClient(base_url=url) as client:
+        base_url = resolve_base_url(profile, url)
+        with SWBClient(base_url=base_url) as client:
             if not ctx.obj.get("quiet"):
                 console.print(f"[bold]Scanning:[/bold] {scan_clause}")
                 console.print()
@@ -802,13 +889,20 @@ def scan(
 
 @cli.command()
 @click.option(
+    "--profile",
+    "-p",
+    type=click.Choice(list(PROFILES.keys()), case_sensitive=False),
+    help="Library catalog profile (swb, k10plus, gvk, dnb, bvb, hebis).",
+)
+@click.option(
     "--url",
     type=str,
-    help="Custom SRU endpoint URL.",
+    help="Custom SRU endpoint URL (overrides --profile).",
 )
 @click.pass_context
 def explain(
     ctx: click.Context,
+    profile: str | None,
     url: str | None,
 ) -> None:
     """Display server capabilities and configuration.
@@ -823,7 +917,8 @@ def explain(
         swb explain
     """
     try:
-        with SWBClient(base_url=url) as client:
+        base_url = resolve_base_url(profile, url)
+        with SWBClient(base_url=base_url) as client:
             if not ctx.obj.get("quiet"):
                 console.print("[bold]Fetching server information...[/bold]")
                 console.print()

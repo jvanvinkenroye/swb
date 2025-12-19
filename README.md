@@ -6,6 +6,7 @@ A Python CLI client for querying the Südwestdeutscher Bibliotheksverbund (SWB) 
 
 - Search the SWB catalog using CQL queries or simple keywords
 - Support for multiple search indices (title, author, ISBN, ISSN, etc.)
+- **Multiple library catalog profiles** - Switch between different German library union catalogs (SWB, K10plus, DNB, GBV, BVB, HeBIS)
 - Index scanning for auto-completion and browsing terms
 - Server capabilities discovery via SRU explain operation
 - Band/linking search for finding related publications in multi-volume works
@@ -13,6 +14,7 @@ A Python CLI client for querying the Südwestdeutscher Bibliotheksverbund (SWB) 
 - Multiple output formats (MARCXML, TurboMARC, MODS, PICA, Dublin Core)
 - Rich terminal output with formatted tables
 - Export search results to files
+- Library holdings information display
 - Comprehensive error handling and logging
 - Type-safe with full mypy support
 - Well-tested with pytest
@@ -162,6 +164,49 @@ swb search "Python" --max 20
 # Get results starting from position 11
 swb search "Python" --start-record 11 --max 10
 ```
+
+#### Library Catalog Profiles
+
+The SWB client supports multiple German library union catalogs through pre-configured profiles. This allows you to search different catalogs without manually specifying endpoint URLs.
+
+**List available profiles:**
+```bash
+swb profiles
+```
+
+**Available profiles:**
+- **swb** - SWB (Südwestdeutscher Bibliotheksverbund) - Baden-Württemberg, Saarland, Sachsen
+- **k10plus** - K10plus Verbundkatalog - Northern and southwestern Germany (includes many NRW libraries)
+- **gvk** - GBV (Gemeinsamer Verbundkatalog) - Northern Germany
+- **dnb** - DNB (Deutsche Nationalbibliothek) - German National Library
+- **bvb** - BVB (Bibliotheksverbund Bayern) - Bavaria
+- **hebis** - HeBIS (Hessisches BibliotheksInformationsSystem) - Hesse and parts of Rhineland-Palatinate
+
+**Use a specific profile:**
+```bash
+# Search K10plus catalog
+swb search "Python programming" --profile k10plus
+
+# Search DNB catalog
+swb isbn 978-3-16-148410-0 --profile dnb
+
+# Search with profile shorthand
+swb search "Goethe" -p gvk --max 10
+```
+
+**Profile priority:**
+1. Custom `--url` option (overrides profile)
+2. `--profile` option
+3. Default profile (swb)
+
+**Example with custom URL:**
+```bash
+# Custom URL takes precedence over profile
+swb search "query" --profile k10plus --url https://custom.endpoint.de/sru
+```
+
+**Compatible with all commands:**
+The `--profile` option works with all search commands: `search`, `isbn`, `issn`, `related`, `scan`, `explain`.
 
 #### Library Holdings
 

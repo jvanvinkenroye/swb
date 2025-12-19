@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 from click.testing import CliRunner
 
-from swb.cli import cli
+from swb.cli import cli, resolve_base_url
 from swb.models import RecordFormat, SearchResponse, SearchResult
 
 
@@ -332,3 +332,41 @@ def test_scan_no_results(mock_client_class: Mock, runner: CliRunner) -> None:
 
     assert result.exit_code == 0
     assert "No terms found" in result.output
+
+
+# Tests for resolve_base_url function
+def test_resolve_base_url_with_custom_url():
+    """Test that custom URL takes precedence over profile."""
+    custom_url = "https://custom.example.com/sru"
+    result = resolve_base_url(profile="k10plus", url=custom_url)
+    assert result == custom_url
+
+
+def test_resolve_base_url_with_profile():
+    """Test URL resolution from profile name."""
+    result = resolve_base_url(profile="k10plus", url=None)
+    assert result == "https://sru.k10plus.de/opac-de-627"
+
+
+def test_resolve_base_url_with_swb_profile():
+    """Test URL resolution for SWB profile."""
+    result = resolve_base_url(profile="swb", url=None)
+    assert result == "https://sru.k10plus.de/swb"
+
+
+def test_resolve_base_url_with_dnb_profile():
+    """Test URL resolution for DNB profile."""
+    result = resolve_base_url(profile="dnb", url=None)
+    assert result == "https://services.dnb.de/sru/dnb"
+
+
+def test_resolve_base_url_default():
+    """Test that default profile (SWB) is used when neither profile nor URL provided."""
+    result = resolve_base_url(profile=None, url=None)
+    assert result == "https://sru.k10plus.de/swb"
+
+
+def test_resolve_base_url_invalid_profile():
+    """Test that invalid profile raises ValueError."""
+    with pytest.raises(ValueError, match="Unknown profile: invalid"):
+        resolve_base_url(profile="invalid", url=None)
