@@ -7,7 +7,7 @@ Note: Faceted search requires SRU 2.0 support from the server.
 """
 
 from swb.api import SWBClient
-from swb.models import RecordFormat, SearchIndex
+from swb.models import SearchIndex
 
 # Create client
 client = SWBClient()
