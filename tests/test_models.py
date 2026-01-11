@@ -1,6 +1,12 @@
 """Tests for data models."""
 
-from swb.models import RecordFormat, SearchIndex, SearchResponse, SearchResult
+from swb.models import (
+    LibraryHolding,
+    RecordFormat,
+    SearchIndex,
+    SearchResponse,
+    SearchResult,
+)
 
 
 def test_record_format_enum() -> None:
@@ -28,6 +34,31 @@ def test_search_result_defaults() -> None:
     assert result.publisher is None
     assert result.isbn is None
     assert result.format == RecordFormat.MARCXML
+    assert result.holdings == []  # Should be initialized to empty list
+
+
+def test_search_result_holdings_initialization() -> None:
+    """Test SearchResult holdings field is properly initialized."""
+    # Test default initialization creates empty list
+    result1 = SearchResult()
+    assert result1.holdings == []
+    assert isinstance(result1.holdings, list)
+
+    # Test that each instance gets its own list (no shared mutable default)
+    result2 = SearchResult()
+    result1.holdings.append(LibraryHolding(library_code="DE-21"))
+    assert len(result1.holdings) == 1
+    assert len(result2.holdings) == 0  # Should not be affected
+
+    # Test explicit None is converted to empty list
+    result3 = SearchResult(holdings=None)
+    assert result3.holdings == []
+
+    # Test explicit list is preserved
+    holdings_list = [LibraryHolding(library_code="DE-15")]
+    result4 = SearchResult(holdings=holdings_list)
+    assert result4.holdings == holdings_list
+    assert len(result4.holdings) == 1
 
 
 def test_search_result_with_data() -> None:
