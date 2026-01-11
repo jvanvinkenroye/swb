@@ -91,9 +91,7 @@ def get_profile(name: str) -> CatalogProfile:
     name_lower = name.lower()
     if name_lower not in PROFILES:
         available = ", ".join(PROFILES.keys())
-        raise ValueError(
-            f"Unknown profile: {name}. Available profiles: {available}"
-        )
+        raise ValueError(f"Unknown profile: {name}. Available profiles: {available}")
     return PROFILES[name_lower]
 
 

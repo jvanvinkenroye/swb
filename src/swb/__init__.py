@@ -22,6 +22,7 @@ from swb.models import (
     SortBy,
     SortOrder,
 )
+from swb.tui import SWBTUIDirect, run_tui
 
 __all__ = [
     "SWBClient",
@@ -40,4 +41,6 @@ __all__ = [
     "ServerInfo",
     "SortBy",
     "SortOrder",
+    "run_tui",
+    "SWBTUIDirect",
 ]

@@ -23,10 +23,12 @@ dependencies = [
     "lxml>=6.0.2",
     "requests>=2.32.5",
     "rich>=14.2.0",
+    "textual>=6.12.0",
 ]
 
 [project.scripts]
 swb = "swb.cli:main"
+swb-tui = "swb.tui:run_tui"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/swb"
