@@ -6,9 +6,12 @@ from types import TracebackType
 import requests
 from lxml import etree
 
+from swb import __version__
 from swb.models import (
     DatabaseInfo,
     ExplainResponse,
+    Facet,
+    FacetValue,
     IndexInfo,
     LibraryHolding,
     RecordFormat,
@@ -26,6 +29,16 @@ from swb.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Create a secure XML parser to prevent XXE attacks
+# See: https://lxml.de/FAQ.html#how-do-i-use-lxml-safely-as-a-web-service-endpoint
+# See: https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html
+SECURE_PARSER = etree.XMLParser(
+    resolve_entities=False,  # Prevent XXE (XML External Entity) attacks
+    no_network=True,  # Prevent network access from XML
+    remove_blank_text=True,  # Clean whitespace
+    huge_tree=False,  # Prevent DoS via large documents
+)
 
 
 class SWBClient:
@@ -145,7 +158,7 @@ class SWBClient:
         self.session = requests.Session()
         self.session.headers.update(
             {
-                "User-Agent": "SWB-Python-Client/0.1.0 (+https://github.com/yourusername/swb)",
+                "User-Agent": f"SWB-Python-Client/{__version__} (+https://github.com/jvanvinkenroye/swb)",
                 "Accept": "application/xml",
                 "Accept-Encoding": "gzip, deflate",
             }
@@ -154,6 +167,30 @@ class SWBClient:
         # Add API key if provided
         if api_key:
             self.session.headers.update({"Authorization": f"Bearer {api_key}"})
+
+    def _handle_http_errors(self, response: requests.Response) -> None:
+        """Handle common HTTP errors with helpful messages.
+
+        Args:
+            response: HTTP response to check
+
+        Raises:
+            requests.HTTPError: For HTTP error status codes
+        """
+        if response.status_code == 403:
+            error_msg = f"Access denied (403 Forbidden) from {self.base_url}"
+            error_msg += "\nPossible causes:\n"
+            error_msg += "- The SRU server may require authentication\n"
+            error_msg += "- Your IP address may be blocked\n"
+            error_msg += "- The server may have changed its access policy\n"
+            error_msg += "\nTry:\n"
+            error_msg += "- Using a different profile (--profile k10plus, dnb, etc.)\n"
+            error_msg += "- Checking if the server requires an API key\n"
+            error_msg += "- Using a VPN or different network connection\n"
+            logger.error(error_msg)
+            raise requests.HTTPError(error_msg, response=response)
+
+        response.raise_for_status()
 
     def search(
         self,
@@ -165,6 +202,9 @@ class SWBClient:
         sort_by: SortBy | None = None,
         sort_order: SortOrder = SortOrder.DESCENDING,
         record_packing: str = "xml",
+        facets: list[str] | None = None,
+        facet_limit: int = 10,
+        sru_version: str | None = None,
     ) -> SearchResponse:
         """Search the SWB catalog using CQL query syntax.
 
@@ -180,15 +220,19 @@ class SWBClient:
             record_packing: How records are packed in the response. Valid values:
                           "xml" (default) - Records embedded as XML
                           "string" - Records escaped as strings
+            facets: List of facet fields to request (requires SRU 2.0).
+                   Examples: ["year", "author", "subject"]
+            facet_limit: Maximum number of facet values per facet field. Default is 10.
+            sru_version: SRU version to use. If facets are requested, defaults to "2.0",
+                        otherwise uses the client's default version.
 
         Returns:
-            SearchResponse containing the search results.
+            SearchResponse containing the search results and facets (if requested).
 
         Raises:
             requests.RequestException: If the API request fails.
-            ValueError: If the query is empty, if start_record < 1,
-                if maximum_records < 1, if the response cannot be parsed,
-                or if recordPacking is invalid.
+            ValueError: If the response cannot be parsed, parameters are invalid,
+                       or recordPacking is invalid.
 
         Example:
             >>> client = SWBClient()
@@ -196,9 +240,14 @@ class SWBClient:
             ...     "Python",
             ...     index=SearchIndex.TITLE,
             ...     sort_by=SortBy.YEAR,
-            ...     sort_order=SortOrder.DESCENDING
+            ...     sort_order=SortOrder.DESCENDING,
+            ...     facets=["year", "author"],
+            ...     facet_limit=20
             ... )
             >>> print(f"Found {results.total_results} results")
+            >>> if results.facets:
+            ...     for facet in results.facets:
+            ...         print(f"{facet.name}: {len(facet.values)} values")
         """
         # Validate input parameters
         if not query or not query.strip():
@@ -229,8 +278,11 @@ class SWBClient:
         else:
             cql_query = query
 
+        # Use SRU 2.0 if facets are requested, unless version is explicitly set
+        version = sru_version or ("2.0" if facets else self.SRU_VERSION)
+
         params = {
-            "version": self.SRU_VERSION,
+            "version": version,
             "operation": "searchRetrieve",
             "query": cql_query,
             "recordSchema": record_format.value,
@@ -245,6 +297,14 @@ class SWBClient:
             sort_order_value = "1" if sort_order == SortOrder.ASCENDING else "0"
             params["sortKeys"] = f"{sort_by.value},,{sort_order_value}"
 
+        # Add facet parameters if specified (SRU 2.0 feature)
+        if facets:
+            # SRU 2.0 facet parameter format
+            # This implementation uses comma-separated list format: facets=year,author,subject
+            # The facetLimit parameter controls max values per facet
+            params["facets"] = ",".join(facets)
+            params["facetLimit"] = facet_limit
+
         logger.info(f"Searching SWB: {cql_query}")
         logger.debug(f"Request parameters: {params}")
 
@@ -255,23 +315,9 @@ class SWBClient:
                 timeout=self.timeout,
             )
 
-            # Handle specific HTTP status codes with helpful messages
-            if response.status_code == 403:
-                error_msg = f"Access denied (403 Forbidden) from {self.base_url}"
-                error_msg += "\nPossible causes:\n"
-                error_msg += "- The SRU server may require authentication\n"
-                error_msg += "- Your IP address may be blocked\n"
-                error_msg += "- The server may have changed its access policy\n"
-                error_msg += "\nTry:\n"
-                error_msg += (
-                    "- Using a different profile (--profile k10plus, dnb, etc.)\n"
-                )
-                error_msg += "- Checking if the server requires an API key\n"
-                error_msg += "- Using a VPN or different network connection\n"
-                logger.error(error_msg)
-                raise requests.HTTPError(error_msg, response=response)
+            # Handle HTTP errors with helpful messages
+            self._handle_http_errors(response)
 
-            response.raise_for_status()
             # Ensure UTF-8 encoding for proper handling of German umlauts
             response.encoding = "utf-8"
         except requests.RequestException as e:
@@ -414,23 +460,9 @@ class SWBClient:
                 timeout=self.timeout,
             )
 
-            # Handle specific HTTP status codes with helpful messages
-            if response.status_code == 403:
-                error_msg = f"Access denied (403 Forbidden) from {self.base_url}"
-                error_msg += "\nPossible causes:\n"
-                error_msg += "- The SRU server may require authentication\n"
-                error_msg += "- Your IP address may be blocked\n"
-                error_msg += "- The server may have changed its access policy\n"
-                error_msg += "\nTry:\n"
-                error_msg += (
-                    "- Using a different profile (--profile k10plus, dnb, etc.)\n"
-                )
-                error_msg += "- Checking if the server requires an API key\n"
-                error_msg += "- Using a VPN or different network connection\n"
-                logger.error(error_msg)
-                raise requests.HTTPError(error_msg, response=response)
+            # Handle HTTP errors with helpful messages
+            self._handle_http_errors(response)
 
-            response.raise_for_status()
             # Ensure UTF-8 encoding for proper handling of German umlauts
             response.encoding = "utf-8"
         except requests.RequestException as e:
@@ -478,23 +510,9 @@ class SWBClient:
                 timeout=self.timeout,
             )
 
-            # Handle specific HTTP status codes with helpful messages
-            if response.status_code == 403:
-                error_msg = f"Access denied (403 Forbidden) from {self.base_url}"
-                error_msg += "\nPossible causes:\n"
-                error_msg += "- The SRU server may require authentication\n"
-                error_msg += "- Your IP address may be blocked\n"
-                error_msg += "- The server may have changed its access policy\n"
-                error_msg += "\nTry:\n"
-                error_msg += (
-                    "- Using a different profile (--profile k10plus, dnb, etc.)\n"
-                )
-                error_msg += "- Checking if the server requires an API key\n"
-                error_msg += "- Using a VPN or different network connection\n"
-                logger.error(error_msg)
-                raise requests.HTTPError(error_msg, response=response)
+            # Handle HTTP errors with helpful messages
+            self._handle_http_errors(response)
 
-            response.raise_for_status()
             # Ensure UTF-8 encoding
             response.encoding = "utf-8"
         except requests.RequestException as e:
@@ -613,7 +631,7 @@ class SWBClient:
             xml_bytes = (
                 xml_data.encode("utf-8") if isinstance(xml_data, str) else xml_data
             )
-            root = etree.fromstring(xml_bytes)
+            root = etree.fromstring(xml_bytes, parser=SECURE_PARSER)
         except etree.XMLSyntaxError as e:
             logger.error(f"Failed to parse XML response: {e}")
             raise ValueError(f"Invalid XML response: {e}") from e
@@ -647,13 +665,77 @@ class SWBClient:
 
         logger.info(f"Parsed {len(results)} records from response")
 
+        # Parse facets if present (SRU 2.0 feature)
+        facets = self._parse_facets(root)
+
         return SearchResponse(
             total_results=total_results,
             results=results,
             next_record=next_record,
             query=query,
             format=record_format,
+            facets=facets,
         )
+
+    def _parse_facets(self, root: etree._Element) -> list[Facet] | None:
+        """Parse facets from SRU 2.0 response.
+
+        Args:
+            root: Root element of the SRU XML response.
+
+        Returns:
+            List of Facet objects or None if no facets present.
+
+        Note:
+            SRU 2.0 facet format may vary by server implementation.
+            This implementation follows the SRU 2.0 specification for facets.
+        """
+        # Look for facets in the SRU response
+        # SRU 2.0 facet format: <srw:facetedResults>
+        faceted_results = root.find(".//srw:facetedResults", namespaces=self.NAMESPACES)
+
+        if faceted_results is None:
+            return None
+
+        facets = []
+
+        # Parse each facet field
+        facet_fields = faceted_results.findall(".//srw:facet", namespaces=self.NAMESPACES)
+
+        for facet_field in facet_fields:
+            # Get facet name/index
+            facet_index_elem = facet_field.find(".//srw:index", namespaces=self.NAMESPACES)
+            if facet_index_elem is None or not facet_index_elem.text:
+                continue
+
+            facet_name = facet_index_elem.text
+
+            # Parse facet terms/values
+            facet_values = []
+            terms = facet_field.findall(".//srw:term", namespaces=self.NAMESPACES)
+
+            for term in terms:
+                # Get term value
+                term_value_elem = term.find(".//srw:actualTerm", namespaces=self.NAMESPACES)
+                if term_value_elem is None or not term_value_elem.text:
+                    # Try alternative element name
+                    term_value_elem = term.find(".//srw:value", namespaces=self.NAMESPACES)
+                    if term_value_elem is None or not term_value_elem.text:
+                        continue
+
+                term_value = term_value_elem.text
+
+                # Get term count
+                count_elem = term.find(".//srw:count", namespaces=self.NAMESPACES)
+                count = int(count_elem.text) if count_elem is not None and count_elem.text else 0
+
+                facet_values.append(FacetValue(value=term_value, count=count))
+
+            if facet_values:
+                facets.append(Facet(name=facet_name, values=facet_values))
+
+        logger.info(f"Parsed {len(facets)} facets from response")
+        return facets if facets else None
 
     def _parse_record(
         self,
@@ -1042,7 +1124,7 @@ class SWBClient:
             xml_bytes = (
                 xml_data.encode("utf-8") if isinstance(xml_data, str) else xml_data
             )
-            root = etree.fromstring(xml_bytes)
+            root = etree.fromstring(xml_bytes, parser=SECURE_PARSER)
         except etree.XMLSyntaxError as e:
             logger.error(f"Failed to parse scan XML response: {e}")
             raise ValueError(f"Invalid scan XML response: {e}") from e
@@ -1123,7 +1205,7 @@ class SWBClient:
             xml_bytes = (
                 xml_data.encode("utf-8") if isinstance(xml_data, str) else xml_data
             )
-            root = etree.fromstring(xml_bytes)
+            root = etree.fromstring(xml_bytes, parser=SECURE_PARSER)
         except etree.XMLSyntaxError as e:
             logger.error(f"Failed to parse explain XML response: {e}")
             raise ValueError(f"Invalid explain XML response: {e}") from e
