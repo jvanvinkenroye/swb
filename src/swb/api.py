@@ -1161,15 +1161,16 @@ class SWBClient:
             # Get library name from mapping or use code
             library_name = self.LIBRARY_NAMES.get(library_code, None)
             if not library_name:
-                # Try to extract institution type from code pattern
-                if library_code.startswith("DE-"):
-                    suffix = library_code[3:]
-                    if suffix.isdigit():
-                        library_name = f"German Library (DE-{suffix})"
-                    else:
-                        library_name = f"German Library ({library_code})"
+                # Library code not in dictionary
+                # Note: Library codes (ISIL) can be looked up at https://sigel.staatsbibliothek-berlin.de/
+
+                # Handle special patterns
+                if library_code.startswith("DE-M504"):
+                    # M504xxx codes are typically Onleihe (digital lending) services
+                    library_name = "Onleihe"
                 else:
-                    library_name = f"Library ({library_code})"
+                    # Use library code as fallback
+                    library_name = None
 
             # Extract access URL (subfield k)
             access_url_elem = field.find(

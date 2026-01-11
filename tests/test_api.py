@@ -1078,8 +1078,8 @@ def test_parse_holdings_unknown_library(client: SWBClient) -> None:
 
     holding = result.holdings[0]
     assert holding.library_code == "DE-UNKNOWN"
-    # Should generate a fallback name when not in mapping
-    assert holding.library_name == "German Library (DE-UNKNOWN)"
+    # Unknown libraries have library_name=None; CLI layer handles display
+    assert holding.library_name is None
 
 
 def test_parse_holdings_no_holdings(client: SWBClient) -> None:

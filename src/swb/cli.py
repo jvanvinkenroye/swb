@@ -149,7 +149,7 @@ def display_results(
                 holdings_table.add_column("Access", style="blue", no_wrap=False)
 
                 for holding in result.holdings:
-                    # Improved library display with better fallback handling
+                    # Display library name with code or just code if name unknown
                     if (
                         holding.library_name
                         and holding.library_name != holding.library_code
@@ -157,20 +157,9 @@ def display_results(
                         library_display = (
                             f"{holding.library_name} ({holding.library_code})"
                         )
-                    elif holding.library_name:
-                        library_display = holding.library_name
                     elif holding.library_code:
-                        # Try to make unknown codes more readable
-                        if holding.library_code.startswith("DE-"):
-                            suffix = holding.library_code[3:]
-                            if suffix.isdigit():
-                                library_display = f"German Library DE-{suffix}"
-                            else:
-                                library_display = (
-                                    f"German Library {holding.library_code}"
-                                )
-                        else:
-                            library_display = f"Library {holding.library_code}"
+                        # Show just the code for unknown libraries
+                        library_display = holding.library_code
                     else:
                         library_display = "Unknown Library"
 
