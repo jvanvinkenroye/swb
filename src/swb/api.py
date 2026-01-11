@@ -186,8 +186,8 @@ class SWBClient:
 
         Raises:
             requests.RequestException: If the API request fails.
-            ValueError: If the query is empty, if start_record < 1, 
-                if maximum_records < 1, if the response cannot be parsed, 
+            ValueError: If the query is empty, if start_record < 1,
+                if maximum_records < 1, if the response cannot be parsed,
                 or if recordPacking is invalid.
 
         Example:
@@ -203,19 +203,19 @@ class SWBClient:
         # Validate input parameters
         if not query or not query.strip():
             raise ValueError("Query cannot be empty")
-        
+
         if start_record < 1:
             raise ValueError(f"start_record must be >= 1, got {start_record}")
-        
+
         if maximum_records < 1:
             raise ValueError(f"maximum_records must be >= 1, got {maximum_records}")
-        
+
         if maximum_records > 100:
             logger.warning(
                 f"maximum_records={maximum_records} may be rejected by server. "
                 "Most SRU servers limit to 100 records per request."
             )
-        
+
         # Validate recordPacking parameter
         if record_packing not in ("xml", "string"):
             raise ValueError(
@@ -295,21 +295,21 @@ class SWBClient:
 
         Returns:
             SearchResponse containing the search results.
-        
+
         Raises:
             ValueError: If the ISBN is empty.
         """
         # Validate input
         if not isbn or not isbn.strip():
             raise ValueError("ISBN cannot be empty")
-        
+
         # Remove common ISBN separators
         clean_isbn = isbn.replace("-", "").replace(" ", "")
-        
+
         # Check if anything remains after cleaning
         if not clean_isbn:
             raise ValueError("ISBN cannot be empty after removing separators")
-        
+
         return self.search(
             clean_isbn,
             record_format=record_format,
@@ -332,20 +332,20 @@ class SWBClient:
 
         Returns:
             SearchResponse containing the search results.
-        
+
         Raises:
             ValueError: If the ISSN is empty.
         """
         # Validate input
         if not issn or not issn.strip():
             raise ValueError("ISSN cannot be empty")
-        
+
         clean_issn = issn.replace("-", "").replace(" ", "")
-        
+
         # Check if anything remains after cleaning
         if not clean_issn:
             raise ValueError("ISSN cannot be empty after removing separators")
-        
+
         return self.search(
             clean_issn,
             record_format=record_format,
@@ -377,7 +377,7 @@ class SWBClient:
 
         Raises:
             requests.RequestException: If the API request fails.
-            ValueError: If scan_clause is empty, if response_position < 1, 
+            ValueError: If scan_clause is empty, if response_position < 1,
                 if maximum_terms < 1, or if the response cannot be parsed.
 
         Example:
@@ -389,13 +389,13 @@ class SWBClient:
         # Validate input parameters
         if not scan_clause or not scan_clause.strip():
             raise ValueError("scan_clause cannot be empty")
-        
+
         if response_position < 1:
             raise ValueError(f"response_position must be >= 1, got {response_position}")
-        
+
         if maximum_terms < 1:
             raise ValueError(f"maximum_terms must be >= 1, got {maximum_terms}")
-        
+
         params: dict[str, str | int] = {
             "version": self.SRU_VERSION,
             "operation": "scan",
@@ -540,7 +540,7 @@ class SWBClient:
 
         Raises:
             requests.RequestException: If the API request fails.
-            ValueError: If ppn is empty, if start_record < 1, 
+            ValueError: If ppn is empty, if start_record < 1,
                 if maximum_records < 1, or if the response cannot be parsed.
 
         Example:
@@ -556,13 +556,13 @@ class SWBClient:
         # Validate input parameters
         if not ppn or not ppn.strip():
             raise ValueError("ppn cannot be empty")
-        
+
         if start_record < 1:
             raise ValueError(f"start_record must be >= 1, got {start_record}")
-        
+
         if maximum_records < 1:
             raise ValueError(f"maximum_records must be >= 1, got {maximum_records}")
-        
+
         # Construct CQL query using K10plus band search attributes:
         # - pica.1049: Control number (PPN) linking
         # - pica.1045: Relationship type (fam, rel-bt, rel-nt, rel-rt, rel-tt)
