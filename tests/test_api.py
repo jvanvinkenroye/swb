@@ -1086,3 +1086,45 @@ def test_parse_holdings_no_holdings(client: SWBClient) -> None:
 
     result = response.results[0]
     assert len(result.holdings) == 0
+
+
+def test_search_empty_query(client: SWBClient) -> None:
+    """Test that empty query raises ValueError."""
+    with pytest.raises(ValueError, match="Query cannot be empty"):
+        client.search("")
+
+
+def test_search_whitespace_query(client: SWBClient) -> None:
+    """Test that whitespace-only query raises ValueError."""
+    with pytest.raises(ValueError, match="Query cannot be empty"):
+        client.search("   ")
+
+
+def test_search_invalid_start_record(client: SWBClient) -> None:
+    """Test that start_record < 1 raises ValueError."""
+    with pytest.raises(ValueError, match="start_record must be >= 1"):
+        client.search("test", start_record=0)
+
+
+def test_search_invalid_maximum_records(client: SWBClient) -> None:
+    """Test that maximum_records < 1 raises ValueError."""
+    with pytest.raises(ValueError, match="maximum_records must be >= 1"):
+        client.search("test", maximum_records=0)
+
+
+def test_search_large_maximum_records_warning(client: SWBClient) -> None:
+    """Test that maximum_records > 100 generates a warning."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>0</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        # Should log a warning but not raise
+        with patch("swb.api.logger.warning") as mock_warning:
+            client.search("test", maximum_records=150)
+            mock_warning.assert_called_once()
+            assert "may be rejected by server" in mock_warning.call_args[0][0]

@@ -6,6 +6,7 @@ from types import TracebackType
 import requests
 from lxml import etree
 
+from swb import __version__
 from swb.models import (
     DatabaseInfo,
     ExplainResponse,
@@ -26,6 +27,14 @@ from swb.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Create a secure XML parser to prevent XXE attacks
+SECURE_PARSER = etree.XMLParser(
+    resolve_entities=False,  # Prevent XXE
+    no_network=True,  # Prevent network access
+    remove_blank_text=True,  # Clean whitespace
+    huge_tree=False,  # Prevent DoS
+)
 
 
 class SWBClient:
@@ -145,7 +154,7 @@ class SWBClient:
         self.session = requests.Session()
         self.session.headers.update(
             {
-                "User-Agent": "SWB-Python-Client/0.1.0 (+https://github.com/yourusername/swb)",
+                "User-Agent": f"SWB-Python-Client/{__version__} (+https://github.com/jvanvinkenroye/swb)",
                 "Accept": "application/xml",
                 "Accept-Encoding": "gzip, deflate",
             }
@@ -154,6 +163,30 @@ class SWBClient:
         # Add API key if provided
         if api_key:
             self.session.headers.update({"Authorization": f"Bearer {api_key}"})
+
+    def _handle_http_errors(self, response: requests.Response) -> None:
+        """Handle common HTTP errors with helpful messages.
+
+        Args:
+            response: HTTP response to check
+
+        Raises:
+            requests.HTTPError: For HTTP error status codes
+        """
+        if response.status_code == 403:
+            error_msg = f"Access denied (403 Forbidden) from {self.base_url}"
+            error_msg += "\nPossible causes:\n"
+            error_msg += "- The SRU server may require authentication\n"
+            error_msg += "- Your IP address may be blocked\n"
+            error_msg += "- The server may have changed its access policy\n"
+            error_msg += "\nTry:\n"
+            error_msg += "- Using a different profile (--profile k10plus, dnb, etc.)\n"
+            error_msg += "- Checking if the server requires an API key\n"
+            error_msg += "- Using a VPN or different network connection\n"
+            logger.error(error_msg)
+            raise requests.HTTPError(error_msg, response=response)
+
+        response.raise_for_status()
 
     def search(
         self,
@@ -186,7 +219,8 @@ class SWBClient:
 
         Raises:
             requests.RequestException: If the API request fails.
-            ValueError: If the response cannot be parsed or recordPacking is invalid.
+            ValueError: If the response cannot be parsed, parameters are invalid,
+                       or recordPacking is invalid.
 
         Example:
             >>> client = SWBClient()
@@ -198,6 +232,22 @@ class SWBClient:
             ... )
             >>> print(f"Found {results.total_results} results")
         """
+        # Validate input parameters
+        if not query or not query.strip():
+            raise ValueError("Query cannot be empty")
+
+        if start_record < 1:
+            raise ValueError(f"start_record must be >= 1, got {start_record}")
+
+        if maximum_records < 1:
+            raise ValueError(f"maximum_records must be >= 1, got {maximum_records}")
+
+        if maximum_records > 100:
+            logger.warning(
+                f"maximum_records={maximum_records} may be rejected by server. "
+                "Most SRU servers limit to 100 records per request."
+            )
+
         # Validate recordPacking parameter
         if record_packing not in ("xml", "string"):
             raise ValueError(
@@ -237,23 +287,9 @@ class SWBClient:
                 timeout=self.timeout,
             )
 
-            # Handle specific HTTP status codes with helpful messages
-            if response.status_code == 403:
-                error_msg = f"Access denied (403 Forbidden) from {self.base_url}"
-                error_msg += "\nPossible causes:\n"
-                error_msg += "- The SRU server may require authentication\n"
-                error_msg += "- Your IP address may be blocked\n"
-                error_msg += "- The server may have changed its access policy\n"
-                error_msg += "\nTry:\n"
-                error_msg += (
-                    "- Using a different profile (--profile k10plus, dnb, etc.)\n"
-                )
-                error_msg += "- Checking if the server requires an API key\n"
-                error_msg += "- Using a VPN or different network connection\n"
-                logger.error(error_msg)
-                raise requests.HTTPError(error_msg, response=response)
+            # Handle HTTP errors with helpful messages
+            self._handle_http_errors(response)
 
-            response.raise_for_status()
             # Ensure UTF-8 encoding for proper handling of German umlauts
             response.encoding = "utf-8"
         except requests.RequestException as e:
@@ -361,23 +397,9 @@ class SWBClient:
                 timeout=self.timeout,
             )
 
-            # Handle specific HTTP status codes with helpful messages
-            if response.status_code == 403:
-                error_msg = f"Access denied (403 Forbidden) from {self.base_url}"
-                error_msg += "\nPossible causes:\n"
-                error_msg += "- The SRU server may require authentication\n"
-                error_msg += "- Your IP address may be blocked\n"
-                error_msg += "- The server may have changed its access policy\n"
-                error_msg += "\nTry:\n"
-                error_msg += (
-                    "- Using a different profile (--profile k10plus, dnb, etc.)\n"
-                )
-                error_msg += "- Checking if the server requires an API key\n"
-                error_msg += "- Using a VPN or different network connection\n"
-                logger.error(error_msg)
-                raise requests.HTTPError(error_msg, response=response)
+            # Handle HTTP errors with helpful messages
+            self._handle_http_errors(response)
 
-            response.raise_for_status()
             # Ensure UTF-8 encoding for proper handling of German umlauts
             response.encoding = "utf-8"
         except requests.RequestException as e:
@@ -425,23 +447,9 @@ class SWBClient:
                 timeout=self.timeout,
             )
 
-            # Handle specific HTTP status codes with helpful messages
-            if response.status_code == 403:
-                error_msg = f"Access denied (403 Forbidden) from {self.base_url}"
-                error_msg += "\nPossible causes:\n"
-                error_msg += "- The SRU server may require authentication\n"
-                error_msg += "- Your IP address may be blocked\n"
-                error_msg += "- The server may have changed its access policy\n"
-                error_msg += "\nTry:\n"
-                error_msg += (
-                    "- Using a different profile (--profile k10plus, dnb, etc.)\n"
-                )
-                error_msg += "- Checking if the server requires an API key\n"
-                error_msg += "- Using a VPN or different network connection\n"
-                logger.error(error_msg)
-                raise requests.HTTPError(error_msg, response=response)
+            # Handle HTTP errors with helpful messages
+            self._handle_http_errors(response)
 
-            response.raise_for_status()
             # Ensure UTF-8 encoding
             response.encoding = "utf-8"
         except requests.RequestException as e:
@@ -549,7 +557,7 @@ class SWBClient:
             xml_bytes = (
                 xml_data.encode("utf-8") if isinstance(xml_data, str) else xml_data
             )
-            root = etree.fromstring(xml_bytes)
+            root = etree.fromstring(xml_bytes, parser=SECURE_PARSER)
         except etree.XMLSyntaxError as e:
             logger.error(f"Failed to parse XML response: {e}")
             raise ValueError(f"Invalid XML response: {e}") from e
@@ -978,7 +986,7 @@ class SWBClient:
             xml_bytes = (
                 xml_data.encode("utf-8") if isinstance(xml_data, str) else xml_data
             )
-            root = etree.fromstring(xml_bytes)
+            root = etree.fromstring(xml_bytes, parser=SECURE_PARSER)
         except etree.XMLSyntaxError as e:
             logger.error(f"Failed to parse scan XML response: {e}")
             raise ValueError(f"Invalid scan XML response: {e}") from e
@@ -1059,7 +1067,7 @@ class SWBClient:
             xml_bytes = (
                 xml_data.encode("utf-8") if isinstance(xml_data, str) else xml_data
             )
-            root = etree.fromstring(xml_bytes)
+            root = etree.fromstring(xml_bytes, parser=SECURE_PARSER)
         except etree.XMLSyntaxError as e:
             logger.error(f"Failed to parse explain XML response: {e}")
             raise ValueError(f"Invalid explain XML response: {e}") from e
