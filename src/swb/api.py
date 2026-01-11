@@ -27,6 +27,16 @@ from swb.models import (
 
 logger = logging.getLogger(__name__)
 
+# Create a secure XML parser to prevent XXE attacks
+# See: https://lxml.de/FAQ.html#how-do-i-use-lxml-safely-as-a-web-service-endpoint
+# See: https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html
+SECURE_PARSER = etree.XMLParser(
+    resolve_entities=False,  # Prevent XXE (XML External Entity) attacks
+    no_network=True,  # Prevent network access from XML
+    remove_blank_text=True,  # Clean whitespace
+    huge_tree=False,  # Prevent DoS via large documents
+)
+
 
 class SWBClient:
     """Client for interacting with the SWB SRU API.
@@ -549,7 +559,7 @@ class SWBClient:
             xml_bytes = (
                 xml_data.encode("utf-8") if isinstance(xml_data, str) else xml_data
             )
-            root = etree.fromstring(xml_bytes)
+            root = etree.fromstring(xml_bytes, parser=SECURE_PARSER)
         except etree.XMLSyntaxError as e:
             logger.error(f"Failed to parse XML response: {e}")
             raise ValueError(f"Invalid XML response: {e}") from e
@@ -978,7 +988,7 @@ class SWBClient:
             xml_bytes = (
                 xml_data.encode("utf-8") if isinstance(xml_data, str) else xml_data
             )
-            root = etree.fromstring(xml_bytes)
+            root = etree.fromstring(xml_bytes, parser=SECURE_PARSER)
         except etree.XMLSyntaxError as e:
             logger.error(f"Failed to parse scan XML response: {e}")
             raise ValueError(f"Invalid scan XML response: {e}") from e
@@ -1059,7 +1069,7 @@ class SWBClient:
             xml_bytes = (
                 xml_data.encode("utf-8") if isinstance(xml_data, str) else xml_data
             )
-            root = etree.fromstring(xml_bytes)
+            root = etree.fromstring(xml_bytes, parser=SECURE_PARSER)
         except etree.XMLSyntaxError as e:
             logger.error(f"Failed to parse explain XML response: {e}")
             raise ValueError(f"Invalid explain XML response: {e}") from e
