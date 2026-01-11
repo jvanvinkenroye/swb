@@ -31,11 +31,13 @@ from swb.models import (
 logger = logging.getLogger(__name__)
 
 # Create a secure XML parser to prevent XXE attacks
+# See: https://lxml.de/FAQ.html#how-do-i-use-lxml-safely-as-a-web-service-endpoint
+# See: https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html
 SECURE_PARSER = etree.XMLParser(
-    resolve_entities=False,  # Prevent XXE
-    no_network=True,  # Prevent network access
+    resolve_entities=False,  # Prevent XXE (XML External Entity) attacks
+    no_network=True,  # Prevent network access from XML
     remove_blank_text=True,  # Clean whitespace
-    huge_tree=False,  # Prevent DoS
+    huge_tree=False,  # Prevent DoS via large documents
 )
 
 
