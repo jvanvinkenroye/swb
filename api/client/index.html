@@ -1966,7 +1966,7 @@ for term in response.terms:
 
 
 <h4 id="swb.api.SWBClient.search" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">search</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">record_format</span><span class="o">=</span><span class="n">RecordFormat</span><span class="o">.</span><span class="n">MARCXML</span><span class="p">,</span> <span class="n">start_record</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">maximum_records</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sort_by</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sort_order</span><span class="o">=</span><span class="n">SortOrder</span><span class="o">.</span><span class="n">DESCENDING</span><span class="p">,</span> <span class="n">record_packing</span><span class="o">=</span><span class="s1">&#39;xml&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">search</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">record_format</span><span class="o">=</span><span class="n">RecordFormat</span><span class="o">.</span><span class="n">MARCXML</span><span class="p">,</span> <span class="n">start_record</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">maximum_records</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sort_by</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sort_order</span><span class="o">=</span><span class="n">SortOrder</span><span class="o">.</span><span class="n">DESCENDING</span><span class="p">,</span> <span class="n">record_packing</span><span class="o">=</span><span class="s1">&#39;xml&#39;</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">facet_limit</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">sru_version</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#swb.api.SWBClient.search" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -2118,6 +2118,56 @@ for term in response.terms:
                   <code>&#39;xml&#39;</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>facets</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>List of facet fields to request (requires SRU 2.0).
+   Examples: ["year", "author", "subject"]</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>facet_limit</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum number of facet values per facet field. Default is 10.</p>
+              </div>
+            </td>
+            <td>
+                  <code>10</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>sru_version</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>SRU version to use. If facets are requested, defaults to "2.0",
+        otherwise uses the client's default version.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -2142,7 +2192,7 @@ for term in response.terms:
             </td>
             <td>
               <div class="doc-md-description">
-                <p>SearchResponse containing the search results.</p>
+                <p>SearchResponse containing the search results and facets (if requested).</p>
               </div>
             </td>
           </tr>
@@ -2194,9 +2244,14 @@ results = client.search(
 ...     "Python",
 ...     index=SearchIndex.TITLE,
 ...     sort_by=SortBy.YEAR,
-...     sort_order=SortOrder.DESCENDING
+...     sort_order=SortOrder.DESCENDING,
+...     facets=["year", "author"],
+...     facet_limit=20
 ... )
-print(f"Found {results.total_results} results")</p>
+print(f"Found {results.total_results} results")
+if results.facets:
+...     for facet in results.facets:
+...         print(f"{facet.name}: {len(facet.values)} values")</p>
 </blockquote>
 </blockquote>
 </blockquote>

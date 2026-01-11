@@ -851,6 +851,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#swb.models.Facet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Facet
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#swb.models.FacetValue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FacetValue
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#swb.models.IndexInfo" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1461,6 +1483,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#swb.models.Facet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Facet
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#swb.models.FacetValue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FacetValue
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#swb.models.IndexInfo" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1941,6 +1985,183 @@ information.</p>
             <td>
               <div class="doc-md-description">
                 <p>List of supported record schemas</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h4 id="swb.models.Facet" class="doc doc-heading">
+            <code>Facet</code>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#swb.models.Facet" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>A facet category with values.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="swb.models.Facet.name">name</span></code></td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Facet field name (e.g., "year", "author", "subject")</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="swb.models.Facet.values">values</span></code></td>
+            <td>
+                  <code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="FacetValue
+
+
+  
+      dataclass
+   (swb.models.FacetValue)" href="#swb.models.FacetValue">FacetValue</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>List of facet values with counts</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h4 id="swb.models.FacetValue" class="doc doc-heading">
+            <code>FacetValue</code>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#swb.models.FacetValue" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>A single facet value with count.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="swb.models.FacetValue.value">value</span></code></td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The facet value (e.g., "2024", "Python Programming")</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="swb.models.FacetValue.count">count</span></code></td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of results with this value</p>
               </div>
             </td>
           </tr>
@@ -2781,6 +3002,22 @@ information.</p>
             <td>
               <div class="doc-md-description">
                 <p>Record format used</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="swb.models.SearchResponse.facets">facets</span></code></td>
+            <td>
+                  <code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="Facet
+
+
+  
+      dataclass
+   (swb.models.Facet)" href="#swb.models.Facet">Facet</a>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>List of facets (only available with SRU 2.0)</p>
               </div>
             </td>
           </tr>
