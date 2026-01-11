@@ -203,10 +203,10 @@ def display_results(
             facet_table = Table(show_header=False, box=box.SIMPLE)
             facet_table.add_column("Value", style="green", no_wrap=False)
             facet_table.add_column("Count", style="yellow", justify="right", width=10)
-            
+
             for value in facet.values:
                 facet_table.add_row(value.value, str(value.count))
-            
+
             console.print(facet_table)
 
     # Show pagination info
@@ -227,7 +227,7 @@ def display_results(
                 output_lines.append(f"\n{facet.name}:")
                 for value in facet.values:
                     output_lines.append(f"  {value.value}: {value.count}")
-        
+
         try:
             output_file.parent.mkdir(parents=True, exist_ok=True)
             output_file.write_text("\n".join(output_lines))
@@ -461,7 +461,7 @@ def search(
         swb search "Goethe" --index author --max 20
 
         swb search 'pica.tit="Faust" and pica.per="Goethe"'
-        
+
         swb search "Python" --facets year,author --facet-limit 20
     """
     try:
@@ -470,7 +470,7 @@ def search(
         fmt = RecordFormat[record_format.upper()]
         sort_by_enum = SortBy[sort_by.upper()] if sort_by else None
         sort_order_enum = SortOrder[sort_order.upper()]
-        
+
         # Parse facets list
         facets_list = facets.split(",") if facets else None
 

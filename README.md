@@ -7,6 +7,7 @@ A Python CLI client for querying the Südwestdeutscher Bibliotheksverbund (SWB) 
 - **Interactive Terminal UI (TUI)** - User-friendly interface with keyboard shortcuts for exploring the catalog
 - Search the SWB catalog using CQL queries or simple keywords
 - Support for multiple search indices (title, author, ISBN, ISSN, etc.)
+- **Faceted search (SRU 2.0)** - Filter and explore results by year, author, subject, and other categories
 - **Multiple library catalog profiles** - Switch between different German library union catalogs (SWB, K10plus, DNB, GBV, BVB, HeBIS)
 - **Library holdings display** - See which libraries have items and access information
 - Index scanning for auto-completion and browsing terms
@@ -18,7 +19,7 @@ A Python CLI client for querying the Südwestdeutscher Bibliotheksverbund (SWB) 
 - Export search results to files
 - Comprehensive error handling and logging
 - Type-safe with full mypy support
-- Well-tested with pytest (77 tests, 63% coverage)
+- Well-tested with pytest (83 tests, 82% API coverage)
 
 ## Installation
 
@@ -148,6 +149,42 @@ Available sort options:
 Sort order:
 - `descending` (default) - Newest/Z-A
 - `ascending` - Oldest/A-Z
+
+#### Faceted Search (SRU 2.0)
+
+**Note**: Faceted search requires SRU 2.0 support from the server. The client automatically switches to SRU 2.0 when facets are requested.
+
+Use facets to explore result distribution and filter by categories:
+
+```bash
+# Get faceted results by year and author
+swb search "Python" --facets year,author
+
+# Get more facet values (default is 10)
+swb search "Python" --facets year,author,subject --facet-limit 20
+
+# Combine with other options
+swb search "Machine Learning" --index title --facets year --facet-limit 15 --max 20
+```
+
+Faceted search allows you to:
+- **See distribution**: Understand how results are distributed across years, authors, subjects
+- **Explore data**: Discover patterns in the search results
+- **Navigate results**: Find the most common values in each category
+
+Example output shows facets like:
+- **Years**: 2024 (45), 2023 (38), 2022 (27)
+- **Authors**: Van Rossum, Guido (12), Lutz, Mark (8)
+- **Subjects**: Programming (89), Data Science (34)
+
+Common facet fields (availability depends on server support):
+- `year` - Publication year
+- `author` - Author names
+- `subject` - Subject headings
+- `language` - Language codes
+- `format` - Material/format type
+
+**Compatibility**: Not all SRU servers support faceting. If the server doesn't support SRU 2.0 or faceting, the facets field will be empty (None) in the response.
 
 #### Index Scanning (Browse and Auto-completion)
 

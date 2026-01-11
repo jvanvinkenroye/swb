@@ -636,27 +636,27 @@ class SWBClient:
         # Look for facets in the SRU response
         # SRU 2.0 facet format: <srw:facetedResults>
         faceted_results = root.find(".//srw:facetedResults", namespaces=self.NAMESPACES)
-        
+
         if faceted_results is None:
             return None
 
         facets = []
-        
+
         # Parse each facet field
         facet_fields = faceted_results.findall(".//srw:facet", namespaces=self.NAMESPACES)
-        
+
         for facet_field in facet_fields:
             # Get facet name/index
             facet_index_elem = facet_field.find(".//srw:index", namespaces=self.NAMESPACES)
             if facet_index_elem is None or not facet_index_elem.text:
                 continue
-                
+
             facet_name = facet_index_elem.text
-            
+
             # Parse facet terms/values
             facet_values = []
             terms = facet_field.findall(".//srw:term", namespaces=self.NAMESPACES)
-            
+
             for term in terms:
                 # Get term value
                 term_value_elem = term.find(".//srw:actualTerm", namespaces=self.NAMESPACES)
@@ -665,18 +665,18 @@ class SWBClient:
                     term_value_elem = term.find(".//srw:value", namespaces=self.NAMESPACES)
                     if term_value_elem is None or not term_value_elem.text:
                         continue
-                
+
                 term_value = term_value_elem.text
-                
+
                 # Get term count
                 count_elem = term.find(".//srw:count", namespaces=self.NAMESPACES)
                 count = int(count_elem.text) if count_elem is not None and count_elem.text else 0
-                
+
                 facet_values.append(FacetValue(value=term_value, count=count))
-            
+
             if facet_values:
                 facets.append(Facet(name=facet_name, values=facet_values))
-        
+
         logger.info(f"Parsed {len(facets)} facets from response")
         return facets if facets else None
 

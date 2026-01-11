@@ -1086,3 +1086,211 @@ def test_parse_holdings_no_holdings(client: SWBClient) -> None:
 
     result = response.results[0]
     assert len(result.holdings) == 0
+
+
+def test_search_with_facets(client: SWBClient) -> None:
+    """Test search with facet parameters."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>100</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_response.encoding = "utf-8"
+        mock_get.return_value = mock_response
+
+        # Search with facets
+        client.search(
+            "Python",
+            facets=["year", "author"],
+            facet_limit=20,
+        )
+
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+
+        # Should use SRU 2.0 when facets are requested
+        assert params["version"] == "2.0"
+        assert params["facets"] == "year,author"
+        assert params["facetLimit"] == 20
+
+
+def test_search_without_facets_uses_default_version(client: SWBClient) -> None:
+    """Test that search without facets uses default SRU version."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>0</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_response.encoding = "utf-8"
+        mock_get.return_value = mock_response
+
+        # Search without facets
+        client.search("Python")
+
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+
+        # Should use default version (1.1)
+        assert params["version"] == "1.1"
+        assert "facets" not in params
+
+
+def test_search_with_explicit_version(client: SWBClient) -> None:
+    """Test search with explicitly specified SRU version."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>0</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_response.encoding = "utf-8"
+        mock_get.return_value = mock_response
+
+        # Search with explicit version
+        client.search("Python", sru_version="2.0")
+
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+
+        # Should use explicit version
+        assert params["version"] == "2.0"
+
+
+def test_parse_facets(client: SWBClient) -> None:
+    """Test parsing facets from SRU 2.0 response."""
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+    <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+        <numberOfRecords>100</numberOfRecords>
+        <facetedResults>
+            <facet>
+                <index>year</index>
+                <terms>
+                    <term>
+                        <actualTerm>2024</actualTerm>
+                        <count>45</count>
+                    </term>
+                    <term>
+                        <actualTerm>2023</actualTerm>
+                        <count>38</count>
+                    </term>
+                    <term>
+                        <actualTerm>2022</actualTerm>
+                        <count>27</count>
+                    </term>
+                </terms>
+            </facet>
+            <facet>
+                <index>author</index>
+                <terms>
+                    <term>
+                        <actualTerm>Van Rossum, Guido</actualTerm>
+                        <count>12</count>
+                    </term>
+                    <term>
+                        <actualTerm>Lutz, Mark</actualTerm>
+                        <count>8</count>
+                    </term>
+                </terms>
+            </facet>
+        </facetedResults>
+    </searchRetrieveResponse>"""
+
+    response = client._parse_response(xml_response, "Python", RecordFormat.MARCXML)
+
+    # Check facets were parsed
+    assert response.facets is not None
+    assert len(response.facets) == 2
+
+    # Check first facet (year)
+    year_facet = response.facets[0]
+    assert year_facet.name == "year"
+    assert len(year_facet.values) == 3
+    assert year_facet.values[0].value == "2024"
+    assert year_facet.values[0].count == 45
+    assert year_facet.values[1].value == "2023"
+    assert year_facet.values[1].count == 38
+    assert year_facet.values[2].value == "2022"
+    assert year_facet.values[2].count == 27
+
+    # Check second facet (author)
+    author_facet = response.facets[1]
+    assert author_facet.name == "author"
+    assert len(author_facet.values) == 2
+    assert author_facet.values[0].value == "Van Rossum, Guido"
+    assert author_facet.values[0].count == 12
+    assert author_facet.values[1].value == "Lutz, Mark"
+    assert author_facet.values[1].count == 8
+
+
+def test_parse_facets_alternative_element_names(client: SWBClient) -> None:
+    """Test parsing facets with alternative element names (value instead of actualTerm)."""
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+    <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+        <numberOfRecords>50</numberOfRecords>
+        <facetedResults>
+            <facet>
+                <index>subject</index>
+                <terms>
+                    <term>
+                        <value>Programming</value>
+                        <count>89</count>
+                    </term>
+                    <term>
+                        <value>Data Science</value>
+                        <count>34</count>
+                    </term>
+                </terms>
+            </facet>
+        </facetedResults>
+    </searchRetrieveResponse>"""
+
+    response = client._parse_response(xml_response, "Python", RecordFormat.MARCXML)
+
+    # Check facets were parsed
+    assert response.facets is not None
+    assert len(response.facets) == 1
+
+    # Check subject facet
+    subject_facet = response.facets[0]
+    assert subject_facet.name == "subject"
+    assert len(subject_facet.values) == 2
+    assert subject_facet.values[0].value == "Programming"
+    assert subject_facet.values[0].count == 89
+    assert subject_facet.values[1].value == "Data Science"
+    assert subject_facet.values[1].count == 34
+
+
+def test_parse_response_without_facets(client: SWBClient) -> None:
+    """Test parsing response without facets (SRU 1.1 style)."""
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+    <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+        <numberOfRecords>10</numberOfRecords>
+    </searchRetrieveResponse>"""
+
+    response = client._parse_response(xml_response, "test", RecordFormat.MARCXML)
+
+    # Should not have facets
+    assert response.facets is None
+
+
+def test_parse_empty_facets(client: SWBClient) -> None:
+    """Test parsing response with empty facetedResults."""
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+    <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+        <numberOfRecords>10</numberOfRecords>
+        <facetedResults>
+        </facetedResults>
+    </searchRetrieveResponse>"""
+
+    response = client._parse_response(xml_response, "test", RecordFormat.MARCXML)
+
+    # Should not have facets (empty list is treated as None)
+    assert response.facets is None
