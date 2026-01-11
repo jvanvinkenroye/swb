@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import click
+import requests
 from rich import box
 from rich.console import Console
 from rich.logging import RichHandler
@@ -112,7 +113,9 @@ def display_results(
             if show_holdings and result.holdings:
                 output_lines.append("\nLibrary Holdings:")
                 for holding in result.holdings:
-                    output_lines.append(f"\n  Library: {holding.library_name or holding.library_code}")
+                    output_lines.append(
+                        f"\n  Library: {holding.library_name or holding.library_code}"
+                    )
                     if holding.collection:
                         output_lines.append(f"  Collection: {holding.collection}")
                     if holding.access_url:
@@ -138,19 +141,44 @@ def display_results(
         for idx, result in enumerate(response.results, 1):
             if result.holdings:
                 console.print(f"\n[bold]Record {idx} - Library Holdings:[/bold]")
-                holdings_table = Table(show_header=True, header_style="bold cyan", box=box.ROUNDED)
+                holdings_table = Table(
+                    show_header=True, header_style="bold cyan", box=box.ROUNDED
+                )
                 holdings_table.add_column("Library", style="green", no_wrap=False)
                 holdings_table.add_column("Collection", style="yellow")
                 holdings_table.add_column("Access", style="blue", no_wrap=False)
 
                 for holding in result.holdings:
-                    library_display = holding.library_name or holding.library_code
-                    if holding.library_name and holding.library_code != holding.library_name:
-                        library_display = f"{holding.library_name} ({holding.library_code})"
+                    # Improved library display with better fallback handling
+                    if (
+                        holding.library_name
+                        and holding.library_name != holding.library_code
+                    ):
+                        library_display = (
+                            f"{holding.library_name} ({holding.library_code})"
+                        )
+                    elif holding.library_name:
+                        library_display = holding.library_name
+                    elif holding.library_code:
+                        # Try to make unknown codes more readable
+                        if holding.library_code.startswith("DE-"):
+                            suffix = holding.library_code[3:]
+                            if suffix.isdigit():
+                                library_display = f"German Library DE-{suffix}"
+                            else:
+                                library_display = (
+                                    f"German Library {holding.library_code}"
+                                )
+                        else:
+                            library_display = f"Library {holding.library_code}"
+                    else:
+                        library_display = "Unknown Library"
 
                     access_info = []
                     if holding.access_url:
-                        access_info.append(f"[link={holding.access_url}]Online Access[/link]")
+                        access_info.append(
+                            f"[link={holding.access_url}]Online Access[/link]"
+                        )
                     if holding.access_note:
                         access_info.append(holding.access_note)
                     access_display = "\n".join(access_info) if access_info else "N/A"
@@ -163,7 +191,9 @@ def display_results(
 
                 console.print(holdings_table)
             else:
-                console.print(f"\n[dim]Record {idx} - No holdings information available[/dim]")
+                console.print(
+                    f"\n[dim]Record {idx} - No holdings information available[/dim]"
+                )
 
     # Show pagination info
     if response.has_more:
@@ -204,6 +234,43 @@ def resolve_base_url(profile: str | None, url: str | None) -> str:
         return catalog_profile.url
     # Use default profile if neither provided
     return get_profile("swb").url
+
+
+def handle_api_error(e: Exception, base_url: str) -> None:
+    """Handle API errors and provide user-friendly messages.
+
+    Args:
+        e: Exception that was raised
+        base_url: URL that was being accessed
+    """
+    if isinstance(e, requests.HTTPError):
+        if e.response and e.response.status_code == 403:
+            console_err.print("[red]Access Denied (403 Forbidden)[/red]")
+            console_err.print(f"[bold]Server:[/bold] {base_url}")
+            console_err.print()
+            console_err.print("[bold]Possible Solutions:[/bold]")
+            console_err.print(
+                "- Try a different catalog profile: --profile k10plus, dnb, gvk, etc."
+            )
+            console_err.print("- Check if the server requires authentication (API key)")
+            console_err.print("- Try using a VPN or different network connection")
+            console_err.print(
+                "- The server may be temporarily unavailable or have changed policies"
+            )
+            console_err.print()
+            console_err.print("[bold]Available profiles:[/bold]")
+            for profile_name in PROFILES.keys():
+                console_err.print(f"  - {profile_name}")
+            console_err.print()
+            console_err.print("[bold]Example:[/bold]")
+            console_err.print("  swb search 'Python' --profile k10plus")
+            console_err.print("  swb search 'Python' --profile dnb")
+        else:
+            console_err.print(
+                f"[red]HTTP Error {e.response.status_code if e.response else 'Unknown'}:[/red] {e}"
+            )
+    else:
+        console_err.print(f"[red]Error:[/red] {e}")
 
 
 @click.group()
@@ -387,10 +454,12 @@ def search(
                 record_packing=packing,
             )
 
-            display_results(response, show_raw=raw, output_file=output, show_holdings=holdings)
+            display_results(
+                response, show_raw=raw, output_file=output, show_holdings=holdings
+            )
 
     except Exception as e:
-        console_err.print(f"[red]Error:[/red] {e}")
+        handle_api_error(e, base_url)
         logging.exception("Search failed")
         sys.exit(1)
 
@@ -475,10 +544,12 @@ def isbn(
             response = client.search_by_isbn(
                 isbn, record_format=fmt, record_packing=packing
             )
-            display_results(response, show_raw=raw, output_file=output, show_holdings=holdings)
+            display_results(
+                response, show_raw=raw, output_file=output, show_holdings=holdings
+            )
 
     except Exception as e:
-        console_err.print(f"[red]Error:[/red] {e}")
+        handle_api_error(e, base_url)
         logging.exception("ISBN search failed")
         sys.exit(1)
 
@@ -563,10 +634,12 @@ def issn(
             response = client.search_by_issn(
                 issn, record_format=fmt, record_packing=packing
             )
-            display_results(response, show_raw=raw, output_file=output, show_holdings=holdings)
+            display_results(
+                response, show_raw=raw, output_file=output, show_holdings=holdings
+            )
 
     except Exception as e:
-        console_err.print(f"[red]Error:[/red] {e}")
+        handle_api_error(e, base_url)
         logging.exception("ISSN search failed")
         sys.exit(1)
 
@@ -713,7 +786,9 @@ def related(
         base_url = resolve_base_url(profile, url)
         with SWBClient(base_url=base_url) as client:
             if not ctx.obj.get("quiet"):
-                console.print(f"[bold]Searching for records related to PPN:[/bold] {ppn}")
+                console.print(
+                    f"[bold]Searching for records related to PPN:[/bold] {ppn}"
+                )
                 console.print(f"[bold]Relation Type:[/bold] {relation_type_enum.name}")
                 console.print(f"[bold]Record Type:[/bold] {record_type_enum.name}")
                 if sort_by_enum:
@@ -734,10 +809,12 @@ def related(
                 record_packing=packing,
             )
 
-            display_results(response, show_raw=raw, output_file=output, show_holdings=holdings)
+            display_results(
+                response, show_raw=raw, output_file=output, show_holdings=holdings
+            )
 
     except Exception as e:
-        console_err.print(f"[red]Error:[/red] {e}")
+        handle_api_error(e, base_url)
         logging.exception("Related records search failed")
         sys.exit(1)
 
@@ -788,7 +865,7 @@ def profiles() -> None:
         )
 
     console.print(table)
-    console.print("\n[dim]Use with: swb search \"query\" --profile <name>[/dim]")
+    console.print('\n[dim]Use with: swb search "query" --profile <name>[/dim]')
 
 
 @cli.command()
@@ -882,7 +959,7 @@ def scan(
             console.print(f"[dim]Found {len(response.terms)} terms[/dim]")
 
     except Exception as e:
-        console_err.print(f"[red]Error:[/red] {e}")
+        handle_api_error(e, base_url)
         logging.exception("Scan failed")
         sys.exit(1)
 
@@ -993,7 +1070,7 @@ def explain(
                 )
 
     except Exception as e:
-        console_err.print(f"[red]Error:[/red] {e}")
+        handle_api_error(e, base_url)
         logging.exception("Explain operation failed")
         sys.exit(1)
 

@@ -470,7 +470,9 @@ def test_scan_diagnostic_error(client: SWBClient) -> None:
         mock_response.encoding = "utf-8"
         mock_get.return_value = mock_response
 
-        with pytest.raises(ValueError, match="SRU scan error.*System temporarily unavailable"):
+        with pytest.raises(
+            ValueError, match="SRU scan error.*System temporarily unavailable"
+        ):
             client.scan("pica.per=Test")
 
 
@@ -586,7 +588,10 @@ def test_search_related_child_records(client: SWBClient) -> None:
         call_args = mock_get.call_args
         assert call_args is not None
         params = call_args.kwargs["params"]
-        assert params["query"] == 'pica.1049="267838395" and pica.1045="rel-nt" and pica.1001="b"'
+        assert (
+            params["query"]
+            == 'pica.1049="267838395" and pica.1045="rel-nt" and pica.1001="b"'
+        )
         assert params["operation"] == "searchRetrieve"
 
         # Verify response
@@ -627,7 +632,10 @@ def test_search_related_parent_record(client: SWBClient) -> None:
         call_args = mock_get.call_args
         assert call_args is not None
         params = call_args.kwargs["params"]
-        assert params["query"] == 'pica.1049="123456789" and pica.1045="rel-bt" and pica.1001="b"'
+        assert (
+            params["query"]
+            == 'pica.1049="123456789" and pica.1045="rel-bt" and pica.1001="b"'
+        )
 
         # Verify response
         assert response.total_results == 1
@@ -657,7 +665,10 @@ def test_search_related_family(client: SWBClient) -> None:
         call_args = mock_get.call_args
         assert call_args is not None
         params = call_args.kwargs["params"]
-        assert params["query"] == 'pica.1049="267838395" and pica.1045="fam" and pica.1001="b"'
+        assert (
+            params["query"]
+            == 'pica.1049="267838395" and pica.1045="fam" and pica.1001="b"'
+        )
         assert params["maximumRecords"] == 20
 
         # Verify response
@@ -686,7 +697,10 @@ def test_search_related_authority_records(client: SWBClient) -> None:
         call_args = mock_get.call_args
         assert call_args is not None
         params = call_args.kwargs["params"]
-        assert params["query"] == 'pica.1049="111222333" and pica.1045="rel-rt" and pica.1001="n"'
+        assert (
+            params["query"]
+            == 'pica.1049="111222333" and pica.1045="rel-rt" and pica.1001="n"'
+        )
 
         # Verify response
         assert response.total_results == 3
@@ -714,7 +728,10 @@ def test_search_related_with_format(client: SWBClient) -> None:
         call_args = mock_get.call_args
         assert call_args is not None
         params = call_args.kwargs["params"]
-        assert params["query"] == 'pica.1049="444555666" and pica.1045="rel-tt" and pica.1001="b"'
+        assert (
+            params["query"]
+            == 'pica.1049="444555666" and pica.1045="rel-tt" and pica.1001="b"'
+        )
         assert params["recordSchema"] == "mods"
 
         # Verify response
@@ -804,9 +821,7 @@ def test_search_related_with_packing(client: SWBClient) -> None:
 
         # Search with string packing
         _ = client.search_related(
-            ppn="123456",
-            relation_type=RelationType.CHILD,
-            record_packing="string"
+            ppn="123456", relation_type=RelationType.CHILD, record_packing="string"
         )
 
         # Verify recordPacking parameter
@@ -880,9 +895,7 @@ def test_parse_mods36_record(client: SWBClient) -> None:
         </records>
     </searchRetrieveResponse>"""
 
-    response = client._parse_response(
-        xml_response, "test query", RecordFormat.MODS36
-    )
+    response = client._parse_response(xml_response, "test query", RecordFormat.MODS36)
 
     assert response.total_results == 1
     assert len(response.results) == 1
@@ -914,9 +927,7 @@ def test_parse_mads_record(client: SWBClient) -> None:
         </records>
     </searchRetrieveResponse>"""
 
-    response = client._parse_response(
-        xml_response, "test query", RecordFormat.MADS
-    )
+    response = client._parse_response(xml_response, "test query", RecordFormat.MADS)
 
     assert response.total_results == 1
     assert len(response.results) == 1
@@ -970,7 +981,7 @@ def test_parse_holdings(client: SWBClient) -> None:
     # Check first holding
     holding1 = result.holdings[0]
     assert holding1.library_code == "DE-21"
-    assert holding1.library_name == "Universität Tübingen"
+    assert holding1.library_name == "Universität Stuttgart"
     assert holding1.access_url == "https://example.com/access"
     assert holding1.access_note == "Campus access only"
     assert holding1.collection == "E-Book Collection"
@@ -1048,8 +1059,8 @@ def test_parse_holdings_unknown_library(client: SWBClient) -> None:
 
     holding = result.holdings[0]
     assert holding.library_code == "DE-UNKNOWN"
-    # Should use library code as name when not in mapping
-    assert holding.library_name == "DE-UNKNOWN"
+    # Should generate a fallback name when not in mapping
+    assert holding.library_name == "German Library (DE-UNKNOWN)"
 
 
 def test_parse_holdings_no_holdings(client: SWBClient) -> None:

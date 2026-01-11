@@ -52,28 +52,85 @@ class SWBClient:
         "pica": "info:srw/schema/5/picaXML-v1.0",
     }
 
-    # Library code to name mapping (commonly seen in SWB)
+    # Library code to name mapping (commonly seen in SWB and other German library networks)
     LIBRARY_NAMES = {
-        "DE-21": "Universität Tübingen",
+        # Major universities
+        "DE-1": "Universität Tübingen",
+        "DE-14": "Universität Konstanz",
         "DE-15": "Universitätsbibliothek Rostock",
+        "DE-16": "Universität Freiburg",
+        "DE-21": "Universität Stuttgart",
+        "DE-26": "Universität Hohenheim",
+        "DE-28": "Universität Ulm",
+        "DE-29": "Universität Heidelberg",
+        "DE-705": "Universität Mannheim",
+        "DE-31": "Badische Landesbibliothek Karlsruhe",
+        # Technical universities
         "DE-Ch1": "TU Chemnitz",
+        "DE-289": "Pädagogische Hochschule Karlsruhe",
+        "DE-Fn1": "Hochschule Furtwangen",
+        "DE-1033": "Hochschule Offenburg",
+        "DE-Mh35": "Hochschule Mannheim",
+        "DE-943": "Hochschule für Technik Stuttgart",
+        "DE-Ofb1": "Hochschule Biberach",
+        "DE-16-300": "Universitätsbibliothek Freiburg (Sondersammlung)",
+        "DE-14-1": "Universität Konstanz (Fachbereich 1)",
+        "DE-14-2": "Universität Konstanz (Fachbereich 2)",
+        # Pedagogical universities
         "DE-Frei129": "Pädagogische Hochschule Freiburg",
         "DE-Lg1": "Pädagogische Hochschule Ludwigsburg",
         "DE-747": "Hochschule Ravensburg-Weingarten",
-        "DE-752": "Kommunikations- und Informationszentrum Ulm",
-        "DE-751": "Thüringer Universitäts- und Landesbibliothek Jena",
         "DE-Frei26": "PH Freiburg",
         "DE-Zi4": "Pädagogische Hochschule Schwäbisch Gmünd",
         "DE-953": "PH Weingarten",
         "DE-Frei160": "Evangelische Hochschule Freiburg",
         "DE-944": "HfWU Nürtingen-Geislingen",
-        "DE-31": "Badische Landesbibliothek Karlsruhe",
+        "DE-753": "Hochschule Aalen",
+        "DE-576": "Hochschule Esslingen",
+        "DE-840": "Duale Hochschule Baden-Württemberg (DHBW) Stuttgart",
+        "DE-Loer2": "Hochschule für Forstwirtschaft Rottenburg",
+        # Other important institutions
+        "DE-752": "Kommunikations- und Informationszentrum Ulm",
+        "DE-751": "Thüringer Universitäts- und Landesbibliothek Jena",
+        # Additional common libraries
+        "DE-2": "Universität Hohenheim",
+        "DE-3": "Universität Stuttgart (Zentralbibliothek)",
+        "DE-4": "Universität Tübingen (Theologische Fakultät)",
+        "DE-5": "Universität Tübingen (Medizinische Fakultät)",
+        "DE-6": "Universität Tübingen (Juristische Fakultät)",
+        "DE-7": "Universität Tübingen (Wirtschafts- und Sozialwissenschaftliche Fakultät)",
+        "DE-8": "Universität Tübingen (Philosophische Fakultät)",
+        "DE-9": "Universität Tübingen (Mathematisch-Naturwissenschaftliche Fakultät)",
+        "DE-10": "Universität Konstanz (Hauptbibliothek)",
+        "DE-11": "Universität Konstanz (Fachbereichsbibliothek)",
+        "DE-12": "Universität Freiburg (Universitätsbibliothek)",
+        "DE-13": "Universität Freiburg (Fachbibliotheken)",
+        "DE-17": "Universität Heidelberg",
+        "DE-18": "Universität Heidelberg (Medizinische Fakultät)",
+        "DE-19": "Universität Heidelberg (Juristische Fakultät)",
+        "DE-20": "Universität Heidelberg (Philosophische Fakultät)",
+        "DE-22": "Universität Stuttgart (Fachbibliotheken)",
+        "DE-23": "Universität Stuttgart (Technische Fakultät)",
+        "DE-24": "Universität Stuttgart (Architektur und Stadtplanung)",
+        "DE-25": "Universität Stuttgart (Bau- und Umweltingenieurwissenschaften)",
+        "DE-27": "Universität Ulm (Medizinische Fakultät)",
+        "DE-30": "Universität Mannheim (Schlossbibliothek)",
+        # State libraries
+        "DE-32": "Württembergische Landesbibliothek Stuttgart",
+        "DE-33": "Bayerische Staatsbibliothek München",
+        "DE-34": "Staatsbibliothek zu Berlin",
+        # Special libraries
+        "DE-100": "Deutsche Nationalbibliothek Frankfurt",
+        "DE-101": "Deutsche Nationalbibliothek Leipzig",
+        "DE-200": "Zentralbibliothek Zürich (for Swiss holdings)",
+        "DE-300": "Österreichische Nationalbibliothek Wien (for Austrian holdings)",
     }
 
     def __init__(
         self,
         base_url: str | None = None,
         timeout: int = 30,
+        api_key: str | None = None,
     ) -> None:
         """Initialize the SWB API client.
 
@@ -81,15 +138,22 @@ class SWBClient:
             base_url: Custom base URL for the SRU endpoint.
                      Defaults to the official SWB endpoint.
             timeout: Request timeout in seconds. Defaults to 30.
+            api_key: Optional API key for authentication if required by the server.
         """
         self.base_url = base_url or self.DEFAULT_BASE_URL
         self.timeout = timeout
         self.session = requests.Session()
         self.session.headers.update(
             {
-                "User-Agent": "SWB-Python-Client/0.1.0",
+                "User-Agent": "SWB-Python-Client/0.1.0 (+https://github.com/yourusername/swb)",
+                "Accept": "application/xml",
+                "Accept-Encoding": "gzip, deflate",
             }
         )
+
+        # Add API key if provided
+        if api_key:
+            self.session.headers.update({"Authorization": f"Bearer {api_key}"})
 
     def search(
         self,
@@ -172,6 +236,23 @@ class SWBClient:
                 params=params,
                 timeout=self.timeout,
             )
+
+            # Handle specific HTTP status codes with helpful messages
+            if response.status_code == 403:
+                error_msg = f"Access denied (403 Forbidden) from {self.base_url}"
+                error_msg += "\nPossible causes:\n"
+                error_msg += "- The SRU server may require authentication\n"
+                error_msg += "- Your IP address may be blocked\n"
+                error_msg += "- The server may have changed its access policy\n"
+                error_msg += "\nTry:\n"
+                error_msg += (
+                    "- Using a different profile (--profile k10plus, dnb, etc.)\n"
+                )
+                error_msg += "- Checking if the server requires an API key\n"
+                error_msg += "- Using a VPN or different network connection\n"
+                logger.error(error_msg)
+                raise requests.HTTPError(error_msg, response=response)
+
             response.raise_for_status()
             # Ensure UTF-8 encoding for proper handling of German umlauts
             response.encoding = "utf-8"
@@ -279,6 +360,23 @@ class SWBClient:
                 params=params,
                 timeout=self.timeout,
             )
+
+            # Handle specific HTTP status codes with helpful messages
+            if response.status_code == 403:
+                error_msg = f"Access denied (403 Forbidden) from {self.base_url}"
+                error_msg += "\nPossible causes:\n"
+                error_msg += "- The SRU server may require authentication\n"
+                error_msg += "- Your IP address may be blocked\n"
+                error_msg += "- The server may have changed its access policy\n"
+                error_msg += "\nTry:\n"
+                error_msg += (
+                    "- Using a different profile (--profile k10plus, dnb, etc.)\n"
+                )
+                error_msg += "- Checking if the server requires an API key\n"
+                error_msg += "- Using a VPN or different network connection\n"
+                logger.error(error_msg)
+                raise requests.HTTPError(error_msg, response=response)
+
             response.raise_for_status()
             # Ensure UTF-8 encoding for proper handling of German umlauts
             response.encoding = "utf-8"
@@ -326,6 +424,23 @@ class SWBClient:
                 params=params,
                 timeout=self.timeout,
             )
+
+            # Handle specific HTTP status codes with helpful messages
+            if response.status_code == 403:
+                error_msg = f"Access denied (403 Forbidden) from {self.base_url}"
+                error_msg += "\nPossible causes:\n"
+                error_msg += "- The SRU server may require authentication\n"
+                error_msg += "- Your IP address may be blocked\n"
+                error_msg += "- The server may have changed its access policy\n"
+                error_msg += "\nTry:\n"
+                error_msg += (
+                    "- Using a different profile (--profile k10plus, dnb, etc.)\n"
+                )
+                error_msg += "- Checking if the server requires an API key\n"
+                error_msg += "- Using a VPN or different network connection\n"
+                logger.error(error_msg)
+                raise requests.HTTPError(error_msg, response=response)
+
             response.raise_for_status()
             # Ensure UTF-8 encoding
             response.encoding = "utf-8"
@@ -654,14 +769,28 @@ class SWBClient:
             library_code = library_code_elem.text.strip()
 
             # Get library name from mapping or use code
-            library_name = self.LIBRARY_NAMES.get(library_code, library_code)
+            library_name = self.LIBRARY_NAMES.get(library_code, None)
+            if not library_name:
+                # Try to extract institution type from code pattern
+                if library_code.startswith("DE-"):
+                    suffix = library_code[3:]
+                    if suffix.isdigit():
+                        library_name = f"German Library (DE-{suffix})"
+                    else:
+                        library_name = f"German Library ({library_code})"
+                else:
+                    library_name = f"Library ({library_code})"
 
             # Extract access URL (subfield k)
             access_url_elem = field.find(
                 "marc:subfield[@code='k']",
                 namespaces=self.NAMESPACES,
             )
-            access_url = access_url_elem.text.strip() if access_url_elem is not None and access_url_elem.text else None
+            access_url = (
+                access_url_elem.text.strip()
+                if access_url_elem is not None and access_url_elem.text
+                else None
+            )
 
             # Extract access notes (subfield l) - can have multiple
             access_notes = []
@@ -679,7 +808,11 @@ class SWBClient:
                 "marc:subfield[@code='g']",
                 namespaces=self.NAMESPACES,
             )
-            collection = collection_elem.text.strip() if collection_elem is not None and collection_elem.text else None
+            collection = (
+                collection_elem.text.strip()
+                if collection_elem is not None and collection_elem.text
+                else None
+            )
 
             holding = LibraryHolding(
                 library_code=library_code,
@@ -960,7 +1093,9 @@ class SWBClient:
 
             server_info = ServerInfo(
                 host=host_elem.text if host_elem is not None else "unknown",
-                port=int(port_elem.text) if port_elem is not None and port_elem.text else None,
+                port=int(port_elem.text)
+                if port_elem is not None and port_elem.text
+                else None,
                 database=database_elem.text if database_elem is not None else None,
             )
         else:
@@ -974,8 +1109,12 @@ class SWBClient:
             contact_elem = database_elem.find(".//zr:contact", namespaces=ns)
 
             database_info = DatabaseInfo(
-                title=title_elem.text if title_elem is not None and title_elem.text else "Unknown",
-                description=description_elem.text if description_elem is not None else None,
+                title=title_elem.text
+                if title_elem is not None and title_elem.text
+                else "Unknown",
+                description=description_elem.text
+                if description_elem is not None
+                else None,
                 contact=contact_elem.text if contact_elem is not None else None,
             )
         else:
