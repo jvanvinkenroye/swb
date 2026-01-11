@@ -1936,7 +1936,8 @@ for schema in info.schemas:
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If the response cannot be parsed.</p>
+                <p>If scan_clause is empty, if response_position &lt; 1,
+if maximum_terms &lt; 1, or if the response cannot be parsed.</p>
               </div>
             </td>
           </tr>
@@ -2366,6 +2367,29 @@ if results.facets:
     </table>
 
 
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the ISBN is empty.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
     </div>
 
 </div>
@@ -2468,6 +2492,29 @@ if results.facets:
             <td>
               <div class="doc-md-description">
                 <p>SearchResponse containing the search results.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the ISSN is empty.</p>
               </div>
             </td>
           </tr>
@@ -2711,7 +2758,8 @@ Default is bibliographic records.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If the response cannot be parsed.</p>
+                <p>If ppn is empty, if start_record &lt; 1,
+if maximum_records &lt; 1, or if the response cannot be parsed.</p>
               </div>
             </td>
           </tr>
