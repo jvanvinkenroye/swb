@@ -1605,7 +1605,7 @@
 
 
 <h4 id="swb.api.SWBClient.__init__" class="doc doc-heading">
-            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">base_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">base_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rate_limit</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#swb.api.SWBClient.__init__" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -1669,6 +1669,24 @@
             <td>
               <div class="doc-md-description">
                 <p>Optional API key for authentication if required by the server.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>rate_limit</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum requests per second (None for no limit).
+       Useful for batch processing to avoid overwhelming the server.
+       Example: rate_limit=5 allows max 5 requests per second.</p>
               </div>
             </td>
             <td>
