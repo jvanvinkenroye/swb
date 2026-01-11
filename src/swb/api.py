@@ -10,6 +10,8 @@ from swb import __version__
 from swb.models import (
     DatabaseInfo,
     ExplainResponse,
+    Facet,
+    FacetValue,
     IndexInfo,
     LibraryHolding,
     RecordFormat,
@@ -198,6 +200,9 @@ class SWBClient:
         sort_by: SortBy | None = None,
         sort_order: SortOrder = SortOrder.DESCENDING,
         record_packing: str = "xml",
+        facets: list[str] | None = None,
+        facet_limit: int = 10,
+        sru_version: str | None = None,
     ) -> SearchResponse:
         """Search the SWB catalog using CQL query syntax.
 
@@ -213,9 +218,14 @@ class SWBClient:
             record_packing: How records are packed in the response. Valid values:
                           "xml" (default) - Records embedded as XML
                           "string" - Records escaped as strings
+            facets: List of facet fields to request (requires SRU 2.0).
+                   Examples: ["year", "author", "subject"]
+            facet_limit: Maximum number of facet values per facet field. Default is 10.
+            sru_version: SRU version to use. If facets are requested, defaults to "2.0",
+                        otherwise uses the client's default version.
 
         Returns:
-            SearchResponse containing the search results.
+            SearchResponse containing the search results and facets (if requested).
 
         Raises:
             requests.RequestException: If the API request fails.
@@ -228,9 +238,14 @@ class SWBClient:
             ...     "Python",
             ...     index=SearchIndex.TITLE,
             ...     sort_by=SortBy.YEAR,
-            ...     sort_order=SortOrder.DESCENDING
+            ...     sort_order=SortOrder.DESCENDING,
+            ...     facets=["year", "author"],
+            ...     facet_limit=20
             ... )
             >>> print(f"Found {results.total_results} results")
+            >>> if results.facets:
+            ...     for facet in results.facets:
+            ...         print(f"{facet.name}: {len(facet.values)} values")
         """
         # Validate input parameters
         if not query or not query.strip():
@@ -261,8 +276,11 @@ class SWBClient:
         else:
             cql_query = query
 
+        # Use SRU 2.0 if facets are requested, unless version is explicitly set
+        version = sru_version or ("2.0" if facets else self.SRU_VERSION)
+
         params = {
-            "version": self.SRU_VERSION,
+            "version": version,
             "operation": "searchRetrieve",
             "query": cql_query,
             "recordSchema": record_format.value,
@@ -276,6 +294,14 @@ class SWBClient:
         if sort_by:
             sort_order_value = "1" if sort_order == SortOrder.ASCENDING else "0"
             params["sortKeys"] = f"{sort_by.value},,{sort_order_value}"
+
+        # Add facet parameters if specified (SRU 2.0 feature)
+        if facets:
+            # SRU 2.0 facet parameter format
+            # This implementation uses comma-separated list format: facets=year,author,subject
+            # The facetLimit parameter controls max values per facet
+            params["facets"] = ",".join(facets)
+            params["facetLimit"] = facet_limit
 
         logger.info(f"Searching SWB: {cql_query}")
         logger.debug(f"Request parameters: {params}")
@@ -591,13 +617,77 @@ class SWBClient:
 
         logger.info(f"Parsed {len(results)} records from response")
 
+        # Parse facets if present (SRU 2.0 feature)
+        facets = self._parse_facets(root)
+
         return SearchResponse(
             total_results=total_results,
             results=results,
             next_record=next_record,
             query=query,
             format=record_format,
+            facets=facets,
         )
+
+    def _parse_facets(self, root: etree._Element) -> list[Facet] | None:
+        """Parse facets from SRU 2.0 response.
+
+        Args:
+            root: Root element of the SRU XML response.
+
+        Returns:
+            List of Facet objects or None if no facets present.
+
+        Note:
+            SRU 2.0 facet format may vary by server implementation.
+            This implementation follows the SRU 2.0 specification for facets.
+        """
+        # Look for facets in the SRU response
+        # SRU 2.0 facet format: <srw:facetedResults>
+        faceted_results = root.find(".//srw:facetedResults", namespaces=self.NAMESPACES)
+
+        if faceted_results is None:
+            return None
+
+        facets = []
+
+        # Parse each facet field
+        facet_fields = faceted_results.findall(".//srw:facet", namespaces=self.NAMESPACES)
+
+        for facet_field in facet_fields:
+            # Get facet name/index
+            facet_index_elem = facet_field.find(".//srw:index", namespaces=self.NAMESPACES)
+            if facet_index_elem is None or not facet_index_elem.text:
+                continue
+
+            facet_name = facet_index_elem.text
+
+            # Parse facet terms/values
+            facet_values = []
+            terms = facet_field.findall(".//srw:term", namespaces=self.NAMESPACES)
+
+            for term in terms:
+                # Get term value
+                term_value_elem = term.find(".//srw:actualTerm", namespaces=self.NAMESPACES)
+                if term_value_elem is None or not term_value_elem.text:
+                    # Try alternative element name
+                    term_value_elem = term.find(".//srw:value", namespaces=self.NAMESPACES)
+                    if term_value_elem is None or not term_value_elem.text:
+                        continue
+
+                term_value = term_value_elem.text
+
+                # Get term count
+                count_elem = term.find(".//srw:count", namespaces=self.NAMESPACES)
+                count = int(count_elem.text) if count_elem is not None and count_elem.text else 0
+
+                facet_values.append(FacetValue(value=term_value, count=count))
+
+            if facet_values:
+                facets.append(Facet(name=facet_name, values=facet_values))
+
+        logger.info(f"Parsed {len(facets)} facets from response")
+        return facets if facets else None
 
     def _parse_record(
         self,

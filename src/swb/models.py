@@ -120,6 +120,32 @@ class SearchResult:
 
 
 @dataclass
+class FacetValue:
+    """A single facet value with count.
+
+    Attributes:
+        value: The facet value (e.g., "2024", "Python Programming")
+        count: Number of results with this value
+    """
+
+    value: str
+    count: int
+
+
+@dataclass
+class Facet:
+    """A facet category with values.
+
+    Attributes:
+        name: Facet field name (e.g., "year", "author", "subject")
+        values: List of facet values with counts
+    """
+
+    name: str
+    values: list[FacetValue]
+
+
+@dataclass
 class SearchResponse:
     """Represents the complete response from an SRU search query.
 
@@ -129,6 +155,7 @@ class SearchResponse:
         next_record: Position of the next record for pagination
         query: Original CQL query string
         format: Record format used
+        facets: List of facets (only available with SRU 2.0)
     """
 
     total_results: int
@@ -136,6 +163,7 @@ class SearchResponse:
     next_record: int | None = None
     query: str = ""
     format: RecordFormat = RecordFormat.MARCXML
+    facets: list[Facet] | None = None
 
     @property
     def has_more(self) -> bool:
