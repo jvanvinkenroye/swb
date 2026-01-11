@@ -22,7 +22,6 @@ from swb.models import (
     SortBy,
     SortOrder,
 )
-from swb.tui import SWBTUIDirect, run_tui
 
 __all__ = [
     "SWBClient",
@@ -41,6 +40,13 @@ __all__ = [
     "ServerInfo",
     "SortBy",
     "SortOrder",
-    "run_tui",
-    "SWBTUIDirect",
 ]
+
+# Optional TUI imports (requires textual extra)
+try:
+    from swb.tui import SWBTUIDirect, run_tui
+
+    __all__.extend(["run_tui", "SWBTUIDirect"])
+except ImportError:
+    # TUI dependencies not installed
+    pass

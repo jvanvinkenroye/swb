@@ -353,7 +353,11 @@ class SWBTUIDirect(App[None]):
 
 
 def run_tui() -> None:
-    """Run the SWB TUI application."""
+    """Run the SWB TUI application.
+
+    Note: Requires the 'tui' extra to be installed:
+        uv pip install swb[tui]
+    """
     # Set up logging
     log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
     level = getattr(logging, log_level, logging.INFO)
