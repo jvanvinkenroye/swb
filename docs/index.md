@@ -2,6 +2,9 @@
 
 A powerful Python CLI client for querying the **Südwestdeutscher Bibliotheksverbund (SWB)** library catalog via the SRU (Search/Retrieve via URL) API.
 
+!!! tip "📚 Documentation Now Live!"
+    This documentation is automatically deployed to GitHub Pages. Any changes pushed to the main branch will be reflected here within minutes!
+
 ## Overview
 
 The SWB API Client provides both an interactive terminal UI and a comprehensive command-line interface for searching German library catalogs. Whether you're a researcher, librarian, or developer, this tool makes it easy to discover and access bibliographic information.
