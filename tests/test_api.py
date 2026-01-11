@@ -1090,10 +1090,10 @@ def test_parse_holdings_no_holdings(client: SWBClient) -> None:
 
 def test_xxe_attack_prevention_in_search(client: SWBClient) -> None:
     """Test that XXE attacks are prevented in search response parsing."""
-    # XXE attack payload that tries to read /etc/passwd
+    # XXE attack payload that tries to read a file
     xxe_payload = """<?xml version="1.0" encoding="UTF-8"?>
     <!DOCTYPE foo [
-        <!ENTITY xxe SYSTEM "file:///etc/passwd">
+        <!ENTITY xxe SYSTEM "file:///nonexistent/test/file">
     ]>
     <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
         <numberOfRecords>1</numberOfRecords>
@@ -1122,7 +1122,7 @@ def test_xxe_attack_prevention_in_scan(client: SWBClient) -> None:
     # XXE attack payload in scan response
     xxe_payload = """<?xml version="1.0" encoding="UTF-8"?>
     <!DOCTYPE foo [
-        <!ENTITY xxe SYSTEM "file:///etc/passwd">
+        <!ENTITY xxe SYSTEM "file:///nonexistent/test/file">
     ]>
     <scanResponse xmlns="http://www.loc.gov/zing/srw/">
         <terms>
@@ -1147,7 +1147,7 @@ def test_xxe_attack_prevention_in_explain(client: SWBClient) -> None:
     # XXE attack payload in explain response
     xxe_payload = """<?xml version="1.0" encoding="UTF-8"?>
     <!DOCTYPE foo [
-        <!ENTITY xxe SYSTEM "file:///etc/passwd">
+        <!ENTITY xxe SYSTEM "file:///nonexistent/test/file">
     ]>
     <explainResponse xmlns="http://www.loc.gov/zing/srw/">
         <record>
@@ -1209,9 +1209,9 @@ def test_billion_laughs_attack_prevention(client: SWBClient) -> None:
 
 def test_external_dtd_attack_prevention(client: SWBClient) -> None:
     """Test that external DTD attacks are prevented."""
-    # External DTD attack payload
+    # External DTD attack payload using a reserved test domain
     external_dtd_payload = """<?xml version="1.0" encoding="UTF-8"?>
-    <!DOCTYPE foo SYSTEM "http://evil.example.com/evil.dtd">
+    <!DOCTYPE foo SYSTEM "http://evil.test/evil.dtd">
     <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
         <numberOfRecords>0</numberOfRecords>
     </searchRetrieveResponse>"""
