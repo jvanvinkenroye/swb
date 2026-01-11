@@ -111,7 +111,7 @@ class SearchResult:
     isbn: str | None = None
     raw_data: str | None = None
     format: RecordFormat = RecordFormat.MARCXML
-    holdings: list[LibraryHolding] = None  # type: ignore
+    holdings: list[LibraryHolding] | None = None
 
     def __post_init__(self) -> None:
         """Initialize mutable default values."""
