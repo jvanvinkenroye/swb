@@ -36,7 +36,7 @@ class TestRealAPISearch:
         """Test search by ISBN with real API."""
         with SWBClient() as client:
             # Use a well-known ISBN (this is a real book: "The Pragmatic Programmer")
-            response = client.search_by_isbn("978-0-13-595705-9", maximum_records=1)
+            response = client.search_by_isbn("978-0-13-595705-9")
 
             # May or may not find results, but should not error
             assert response is not None
@@ -105,7 +105,7 @@ class TestRealAPIScan:
         """Test actual scan operation on title index."""
         with SWBClient() as client:
             response = client.scan(
-                scan_clause="Python", index=SearchIndex.TITLE, maximum_terms=5
+                scan_clause="pica.tit=Python", maximum_terms=5
             )
 
             # Should get some scan terms
@@ -117,7 +117,7 @@ class TestRealAPIScan:
         """Test scan operation on author index."""
         with SWBClient() as client:
             response = client.scan(
-                scan_clause="Smith", index=SearchIndex.AUTHOR, maximum_terms=5
+                scan_clause="pica.per=Smith", maximum_terms=5
             )
 
             assert len(response.terms) > 0
