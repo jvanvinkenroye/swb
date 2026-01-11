@@ -4,9 +4,11 @@ A Python CLI client for querying the Südwestdeutscher Bibliotheksverbund (SWB) 
 
 ## Features
 
+- **Interactive Terminal UI (TUI)** - User-friendly interface with keyboard shortcuts for exploring the catalog
 - Search the SWB catalog using CQL queries or simple keywords
 - Support for multiple search indices (title, author, ISBN, ISSN, etc.)
 - **Multiple library catalog profiles** - Switch between different German library union catalogs (SWB, K10plus, DNB, GBV, BVB, HeBIS)
+- **Library holdings display** - See which libraries have items and access information
 - Index scanning for auto-completion and browsing terms
 - Server capabilities discovery via SRU explain operation
 - Band/linking search for finding related publications in multi-volume works
@@ -14,10 +16,9 @@ A Python CLI client for querying the Südwestdeutscher Bibliotheksverbund (SWB) 
 - Multiple output formats (MARCXML, TurboMARC, MODS, PICA, Dublin Core)
 - Rich terminal output with formatted tables
 - Export search results to files
-- Library holdings information display
 - Comprehensive error handling and logging
 - Type-safe with full mypy support
-- Well-tested with pytest
+- Well-tested with pytest (77 tests, 63% coverage)
 
 ## Installation
 
@@ -30,7 +31,7 @@ A Python CLI client for querying the Südwestdeutscher Bibliotheksverbund (SWB) 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/swb.git
+git clone https://github.com/jvanvinkenroye/swb.git
 cd swb
 
 # Create virtual environment and install dependencies
@@ -45,7 +46,30 @@ uv pip install -e .
 
 ## Usage
 
-### Basic Search
+### Terminal User Interface (TUI)
+
+The SWB client includes an experimental interactive terminal UI powered by Textual:
+
+```bash
+# Launch the interactive TUI
+swb-tui
+```
+
+The TUI provides:
+- **Interactive search interface** with real-time results
+- **Keyboard shortcuts** for efficient navigation
+  - `Ctrl+S` - Execute search
+  - `Ctrl+C` - Clear results
+  - `Ctrl+Q` - Quit application
+- **Dropdown menus** for search indices and record formats
+- **Formatted results display** in scrollable containers
+- **Error handling** with helpful messages
+
+The TUI is perfect for exploring the catalog interactively without memorizing CLI commands.
+
+### Command Line Interface (CLI)
+
+#### Basic Search
 
 Search for books by keyword:
 
@@ -444,12 +468,15 @@ swb/
 │       ├── __init__.py      # Package initialization
 │       ├── api.py           # SRU API client
 │       ├── cli.py           # CLI interface
-│       └── models.py        # Data models
+│       ├── models.py        # Data models
+│       ├── profiles.py      # Library catalog profiles
+│       └── tui.py           # Terminal user interface
 ├── tests/
 │   ├── __init__.py
 │   ├── test_api.py          # API client tests
 │   ├── test_cli.py          # CLI tests
-│   └── test_models.py       # Model tests
+│   ├── test_models.py       # Model tests
+│   └── test_profiles.py     # Profile tests
 ├── docs/                    # Documentation
 ├── pyproject.toml           # Project configuration
 ├── README.md                # This file

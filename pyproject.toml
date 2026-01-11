@@ -31,10 +31,10 @@ swb = "swb.cli:main"
 swb-tui = "swb.tui:run_tui"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/swb"
-Documentation = "https://github.com/yourusername/swb#readme"
-Repository = "https://github.com/yourusername/swb"
-Issues = "https://github.com/yourusername/swb/issues"
+Homepage = "https://github.com/jvanvinkenroye/swb"
+Documentation = "https://github.com/jvanvinkenroye/swb#readme"
+Repository = "https://github.com/jvanvinkenroye/swb"
+Issues = "https://github.com/jvanvinkenroye/swb/issues"
 
 [dependency-groups]
 dev = [
