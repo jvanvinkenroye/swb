@@ -6,6 +6,7 @@ import pytest
 import requests
 
 from swb.api import SWBClient
+from swb.exceptions import APIError, ParseError, ValidationError
 from swb.models import RecordFormat, RecordType, RelationType, SearchIndex
 
 
@@ -41,6 +42,7 @@ def test_search_query_building(client: SWBClient) -> None:
     with patch.object(client.session, "get") as mock_get:
         # Create a mock response
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
             <numberOfRecords>0</numberOfRecords>
@@ -62,6 +64,7 @@ def test_search_isbn_cleaning(client: SWBClient) -> None:
     """Test ISBN number cleaning."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
             <numberOfRecords>0</numberOfRecords>
@@ -90,7 +93,7 @@ def test_search_error_handling(client: SWBClient) -> None:
 
 def test_parse_invalid_xml(client: SWBClient) -> None:
     """Test handling of invalid XML responses."""
-    with pytest.raises(ValueError, match="Invalid XML response"):
+    with pytest.raises(ParseError, match="XML Parse Error"):
         client._parse_response("not valid xml", "query", RecordFormat.MARCXML)
 
 
@@ -288,6 +291,7 @@ def test_search_with_sorting(client: SWBClient) -> None:
 
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
             <numberOfRecords>0</numberOfRecords>
@@ -338,6 +342,7 @@ def test_search_without_sorting(client: SWBClient) -> None:
     """Test that sortKeys is not added when sorting is not specified."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
             <numberOfRecords>0</numberOfRecords>
@@ -358,6 +363,7 @@ def test_scan_operation(client: SWBClient) -> None:
     """Test scan operation for browsing terms."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <scanResponse xmlns="http://www.loc.gov/zing/srw/">
             <terms>
@@ -410,6 +416,7 @@ def test_scan_empty_response(client: SWBClient) -> None:
     """Test scan with no results."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <scanResponse xmlns="http://www.loc.gov/zing/srw/">
             <terms>
@@ -428,6 +435,7 @@ def test_scan_with_umlauts(client: SWBClient) -> None:
     """Test scan operation with German umlauts."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <scanResponse xmlns="http://www.loc.gov/zing/srw/">
             <terms>
@@ -456,6 +464,7 @@ def test_scan_diagnostic_error(client: SWBClient) -> None:
     """Test scan with diagnostic error response."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <scanResponse xmlns="http://www.loc.gov/zing/srw/">
             <version>1.1</version>
@@ -471,7 +480,7 @@ def test_scan_diagnostic_error(client: SWBClient) -> None:
         mock_get.return_value = mock_response
 
         with pytest.raises(
-            ValueError, match="SRU scan error.*System temporarily unavailable"
+            APIError, match="SRU Scan Error.*System temporarily unavailable"
         ):
             client.scan("pica.per=Test")
 
@@ -480,6 +489,7 @@ def test_explain_operation(client: SWBClient) -> None:
     """Test explain operation for server capabilities."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <explainResponse xmlns="http://www.loc.gov/zing/srw/">
             <record>
@@ -558,6 +568,7 @@ def test_search_related_child_records(client: SWBClient) -> None:
     """Test searching for child records (volumes) of a multi-volume work."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
             <numberOfRecords>5</numberOfRecords>
@@ -603,6 +614,7 @@ def test_search_related_parent_record(client: SWBClient) -> None:
     """Test searching for parent record of a volume."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
             <numberOfRecords>1</numberOfRecords>
@@ -647,6 +659,7 @@ def test_search_related_family(client: SWBClient) -> None:
     """Test searching for entire family of related records."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
             <numberOfRecords>10</numberOfRecords>
@@ -679,6 +692,7 @@ def test_search_related_authority_records(client: SWBClient) -> None:
     """Test searching for related authority records."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
             <numberOfRecords>3</numberOfRecords>
@@ -710,6 +724,7 @@ def test_search_related_with_format(client: SWBClient) -> None:
     """Test searching related records with specific format."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
             <numberOfRecords>2</numberOfRecords>
@@ -743,6 +758,7 @@ def test_search_with_xml_packing(client: SWBClient) -> None:
     """Test search with XML record packing (default)."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
             <numberOfRecords>1</numberOfRecords>
@@ -764,6 +780,7 @@ def test_search_with_string_packing(client: SWBClient) -> None:
     """Test search with string record packing."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
             <numberOfRecords>1</numberOfRecords>
@@ -782,8 +799,8 @@ def test_search_with_string_packing(client: SWBClient) -> None:
 
 
 def test_search_with_invalid_packing(client: SWBClient) -> None:
-    """Test search with invalid record packing raises ValueError."""
-    with pytest.raises(ValueError, match="Invalid recordPacking value"):
+    """Test search with invalid record packing raises ValidationError."""
+    with pytest.raises(ValidationError, match="Invalid Parameter"):
         client.search("Python", record_packing="invalid")
 
 
@@ -791,6 +808,7 @@ def test_search_by_isbn_with_packing(client: SWBClient) -> None:
     """Test ISBN search supports record packing."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
             <numberOfRecords>1</numberOfRecords>
@@ -812,6 +830,7 @@ def test_search_related_with_packing(client: SWBClient) -> None:
     """Test related search supports record packing."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
             <numberOfRecords>1</numberOfRecords>
@@ -1092,6 +1111,7 @@ def test_search_with_facets(client: SWBClient) -> None:
     """Test search with facet parameters."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
             <numberOfRecords>100</numberOfRecords>
@@ -1121,6 +1141,7 @@ def test_search_without_facets_uses_default_version(client: SWBClient) -> None:
     """Test that search without facets uses default SRU version."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
             <numberOfRecords>0</numberOfRecords>
@@ -1145,6 +1166,7 @@ def test_search_with_explicit_version(client: SWBClient) -> None:
     """Test search with explicitly specified SRU version."""
     with patch.object(client.session, "get") as mock_get:
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
         <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
             <numberOfRecords>0</numberOfRecords>

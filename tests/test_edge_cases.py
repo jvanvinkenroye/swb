@@ -6,6 +6,12 @@ import pytest
 import requests
 
 from swb.api import SWBClient
+from swb.exceptions import (
+    AuthenticationError,
+    NetworkError,
+    ParseError,
+    ServerError,
+)
 from swb.models import RecordFormat, RelationType
 
 
@@ -23,7 +29,7 @@ class TestNetworkErrors:
         with patch.object(client.session, "get") as mock_get:
             mock_get.side_effect = requests.Timeout("Connection timed out")
 
-            with pytest.raises(requests.Timeout):
+            with pytest.raises(NetworkError):
                 client.search("test")
 
     def test_search_connection_error(self, client: SWBClient) -> None:
@@ -31,7 +37,7 @@ class TestNetworkErrors:
         with patch.object(client.session, "get") as mock_get:
             mock_get.side_effect = requests.ConnectionError("Failed to connect")
 
-            with pytest.raises(requests.ConnectionError):
+            with pytest.raises(NetworkError):
                 client.search("test")
 
     def test_scan_network_timeout(self, client: SWBClient) -> None:
@@ -39,7 +45,7 @@ class TestNetworkErrors:
         with patch.object(client.session, "get") as mock_get:
             mock_get.side_effect = requests.Timeout("Read timed out")
 
-            with pytest.raises(requests.Timeout):
+            with pytest.raises(NetworkError):
                 client.scan("test")
 
     def test_explain_connection_error(self, client: SWBClient) -> None:
@@ -47,7 +53,7 @@ class TestNetworkErrors:
         with patch.object(client.session, "get") as mock_get:
             mock_get.side_effect = requests.ConnectionError("Network unreachable")
 
-            with pytest.raises(requests.ConnectionError):
+            with pytest.raises(NetworkError):
                 client.explain()
 
 
@@ -64,7 +70,7 @@ class TestHTTPErrors:
             )
             mock_get.return_value = mock_response
 
-            with pytest.raises(requests.HTTPError):
+            with pytest.raises(ServerError):
                 client.search("test")
 
     def test_search_502_bad_gateway(self, client: SWBClient) -> None:
@@ -77,7 +83,7 @@ class TestHTTPErrors:
             )
             mock_get.return_value = mock_response
 
-            with pytest.raises(requests.HTTPError):
+            with pytest.raises(ServerError):
                 client.search("test")
 
     def test_search_503_service_unavailable(self, client: SWBClient) -> None:
@@ -90,7 +96,7 @@ class TestHTTPErrors:
             )
             mock_get.return_value = mock_response
 
-            with pytest.raises(requests.HTTPError):
+            with pytest.raises(ServerError):
                 client.search("test")
 
     def test_search_403_forbidden_error_message(self, client: SWBClient) -> None:
@@ -100,13 +106,12 @@ class TestHTTPErrors:
             mock_response.status_code = 403
             mock_get.return_value = mock_response
 
-            with pytest.raises(requests.HTTPError) as exc_info:
+            with pytest.raises(AuthenticationError) as exc_info:
                 client.search("test")
 
             error_msg = str(exc_info.value)
-            assert "Access denied" in error_msg
+            assert "Authentication Error" in error_msg
             assert "403 Forbidden" in error_msg
-            assert "authentication" in error_msg.lower()
 
 
 class TestMalformedXML:
@@ -122,7 +127,7 @@ class TestMalformedXML:
             mock_get.return_value = mock_response
 
             # Should raise ValueError for invalid XML
-            with pytest.raises(ValueError, match="Invalid XML response"):
+            with pytest.raises(ParseError, match="XML Parse Error"):
                 client.search("test")
 
     def test_search_incomplete_xml(self, client: SWBClient) -> None:
@@ -134,7 +139,7 @@ class TestMalformedXML:
             mock_response.encoding = "utf-8"
             mock_get.return_value = mock_response
 
-            with pytest.raises(ValueError, match="Invalid XML response"):
+            with pytest.raises(ParseError, match="XML Parse Error"):
                 client.search("test")
 
     def test_scan_malformed_xml(self, client: SWBClient) -> None:
@@ -146,7 +151,7 @@ class TestMalformedXML:
             mock_response.encoding = "utf-8"
             mock_get.return_value = mock_response
 
-            with pytest.raises(ValueError, match="Invalid scan XML response"):
+            with pytest.raises(ParseError, match="XML Parse Error"):
                 client.scan("test")
 
 
@@ -162,7 +167,7 @@ class TestEmptyResponses:
             mock_response.encoding = "utf-8"
             mock_get.return_value = mock_response
 
-            with pytest.raises(ValueError, match="Invalid XML response"):
+            with pytest.raises(ParseError, match="XML Parse Error"):
                 client.search("test")
 
     def test_search_whitespace_only_response(self, client: SWBClient) -> None:
@@ -174,7 +179,7 @@ class TestEmptyResponses:
             mock_response.encoding = "utf-8"
             mock_get.return_value = mock_response
 
-            with pytest.raises(ValueError, match="Invalid XML response"):
+            with pytest.raises(ParseError, match="XML Parse Error"):
                 client.search("test")
 
 
@@ -227,7 +232,7 @@ class TestSearchRelatedEdgeCases:
         with patch.object(client.session, "get") as mock_get:
             mock_get.side_effect = requests.Timeout("Connection timed out")
 
-            with pytest.raises(requests.Timeout):
+            with pytest.raises(NetworkError):
                 client.search_related(ppn="123456", relation_type=RelationType.CHILD)
 
 

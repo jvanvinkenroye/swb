@@ -267,7 +267,61 @@ def handle_api_error(e: Exception, base_url: str) -> None:
         e: Exception that was raised
         base_url: URL that was being accessed
     """
-    if isinstance(e, requests.HTTPError):
+    from swb.exceptions import (
+        APIError,
+        AuthenticationError,
+        NetworkError,
+        ParseError,
+        RateLimitError,
+        ServerError,
+        SWBError,
+        ValidationError,
+    )
+
+    if isinstance(e, ValidationError):
+        console_err.print(f"[red]Validation Error:[/red] {e}", style="red")
+        sys.exit(2)  # Invalid argument
+
+    elif isinstance(e, AuthenticationError):
+        console_err.print(f"[red]Authentication Error:[/red]")
+        console_err.print(str(e))
+        console_err.print()
+        console_err.print("[bold]Available profiles:[/bold]")
+        for profile_name in PROFILES.keys():
+            console_err.print(f"  - {profile_name}")
+        console_err.print()
+        console_err.print("[bold]Example:[/bold]")
+        console_err.print("  swb search 'Python' --profile k10plus")
+        sys.exit(3)  # Authentication failure
+
+    elif isinstance(e, RateLimitError):
+        console_err.print(f"[red]Rate Limit Error:[/red]")
+        console_err.print(str(e))
+        sys.exit(3)  # Rate limit error
+
+    elif isinstance(e, ServerError):
+        console_err.print(f"[red]Server Error:[/red]")
+        console_err.print(str(e))
+        sys.exit(5)  # Server error
+
+    elif isinstance(e, ParseError):
+        console_err.print(f"[red]Parse Error:[/red]")
+        console_err.print(str(e))
+        if hasattr(e, "xml_snippet") and e.xml_snippet:
+            console_err.print(f"\n[dim]XML snippet:[/dim] {e.xml_snippet[:200]}...")
+        sys.exit(4)  # Parse error
+
+    elif isinstance(e, NetworkError):
+        console_err.print(f"[red]Network Error:[/red]")
+        console_err.print(str(e))
+        sys.exit(5)  # Network error
+
+    elif isinstance(e, SWBError):
+        console_err.print(f"[red]Error:[/red] {e}", style="red")
+        sys.exit(1)  # General error
+
+    elif isinstance(e, requests.HTTPError):
+        # Fallback for requests.HTTPError (shouldn't happen with new exception handling)
         if e.response and e.response.status_code == 403:
             console_err.print("[red]Access Denied (403 Forbidden)[/red]")
             console_err.print(f"[bold]Server:[/bold] {base_url}")
@@ -293,8 +347,13 @@ def handle_api_error(e: Exception, base_url: str) -> None:
             console_err.print(
                 f"[red]HTTP Error {e.response.status_code if e.response else 'Unknown'}:[/red] {e}"
             )
+        sys.exit(1)
+
     else:
-        console_err.print(f"[red]Error:[/red] {e}")
+        # Unexpected error
+        console_err.print(f"[red]Unexpected Error:[/red] {e}", style="red")
+        console_err.print("\nPlease report this at: https://github.com/jvanvinkenroye/swb/issues")
+        sys.exit(99)
 
 
 @click.group()

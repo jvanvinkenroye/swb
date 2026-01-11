@@ -5,6 +5,17 @@ __author__ = "Your Name"
 __license__ = "MIT"
 
 from swb.api import SWBClient
+from swb.exceptions import (
+    APIError,
+    AuthenticationError,
+    ConfigurationError,
+    NetworkError,
+    ParseError,
+    RateLimitError,
+    ServerError,
+    SWBError,
+    ValidationError,
+)
 from swb.models import (
     DatabaseInfo,
     ExplainResponse,
@@ -25,6 +36,17 @@ from swb.models import (
 
 __all__ = [
     "SWBClient",
+    # Exceptions
+    "SWBError",
+    "APIError",
+    "AuthenticationError",
+    "ConfigurationError",
+    "NetworkError",
+    "ParseError",
+    "RateLimitError",
+    "ServerError",
+    "ValidationError",
+    # Models
     "DatabaseInfo",
     "ExplainResponse",
     "IndexInfo",

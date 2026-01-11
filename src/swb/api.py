@@ -8,6 +8,16 @@ import requests
 from lxml import etree
 
 from swb import __version__
+from swb.exceptions import (
+    APIError,
+    AuthenticationError,
+    NetworkError,
+    ParseError,
+    RateLimitError,
+    ServerError,
+    ValidationError,
+    format_error_message,
+)
 from swb.models import (
     DatabaseInfo,
     ExplainResponse,
@@ -184,22 +194,63 @@ class SWBClient:
             response: HTTP response to check
 
         Raises:
-            requests.HTTPError: For HTTP error status codes
+            AuthenticationError: For 403 Forbidden errors
+            RateLimitError: For 429 Too Many Requests errors
+            ServerError: For 5xx server errors
+            APIError: For other HTTP error status codes
         """
         if response.status_code == 403:
-            error_msg = f"Access denied (403 Forbidden) from {self.base_url}"
-            error_msg += "\nPossible causes:\n"
-            error_msg += "- The SRU server may require authentication\n"
-            error_msg += "- Your IP address may be blocked\n"
-            error_msg += "- The server may have changed its access policy\n"
-            error_msg += "\nTry:\n"
-            error_msg += "- Using a different profile (--profile k10plus, dnb, etc.)\n"
-            error_msg += "- Checking if the server requires an API key\n"
-            error_msg += "- Using a VPN or different network connection\n"
+            error_msg = format_error_message(
+                error_type="Authentication Error",
+                details=f"Access denied (403 Forbidden) from {self.base_url}",
+                suggestion=(
+                    "Try using a different profile (--profile k10plus, dnb, etc.), "
+                    "check if the server requires an API key, or use a different network connection"
+                ),
+                context={
+                    "url": self.base_url,
+                    "status_code": 403,
+                    "possible_causes": [
+                        "Server requires authentication",
+                        "IP address may be blocked",
+                        "Server access policy changed",
+                    ],
+                },
+            )
             logger.error(error_msg)
-            raise requests.HTTPError(error_msg, response=response)
+            raise AuthenticationError(error_msg, status_code=403)
 
-        response.raise_for_status()
+        if response.status_code == 429:
+            error_msg = format_error_message(
+                error_type="Rate Limit Error",
+                details=f"Too many requests (429) to {self.base_url}",
+                suggestion="Wait before making more requests or use the rate_limit parameter",
+                context={"url": self.base_url, "status_code": 429},
+            )
+            logger.error(error_msg)
+            raise RateLimitError(error_msg, status_code=429)
+
+        if 500 <= response.status_code < 600:
+            error_msg = format_error_message(
+                error_type="Server Error",
+                details=f"Server error ({response.status_code}) from {self.base_url}",
+                suggestion="The server is experiencing issues. Try again later",
+                context={"url": self.base_url, "status_code": response.status_code},
+            )
+            logger.error(error_msg)
+            raise ServerError(error_msg, status_code=response.status_code)
+
+        # For other HTTP errors, use the requests library's exception handling
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as e:
+            error_msg = format_error_message(
+                error_type="HTTP Error",
+                details=f"HTTP {response.status_code} error from {self.base_url}",
+                context={"url": self.base_url, "status_code": response.status_code},
+            )
+            logger.error(error_msg)
+            raise APIError(error_msg, status_code=response.status_code) from e
 
     def _wait_for_rate_limit(self) -> None:
         """Enforce rate limiting if configured.
@@ -293,13 +344,34 @@ class SWBClient:
         """
         # Validate input parameters
         if not query or not query.strip():
-            raise ValueError("Query cannot be empty")
+            raise ValidationError(
+                format_error_message(
+                    error_type="Invalid Parameter",
+                    details="Query cannot be empty",
+                    suggestion="Provide a search query (e.g., 'Python', 'author:Smith', 'isbn:978-3-...')",
+                    context={"parameter": "query", "value": query},
+                )
+            )
 
         if start_record < 1:
-            raise ValueError(f"start_record must be >= 1, got {start_record}")
+            raise ValidationError(
+                format_error_message(
+                    error_type="Invalid Parameter",
+                    details=f"start_record must be >= 1, got {start_record}",
+                    suggestion="Use start_record >= 1 (1 is the first record)",
+                    context={"parameter": "start_record", "value": start_record},
+                )
+            )
 
         if maximum_records < 1:
-            raise ValueError(f"maximum_records must be >= 1, got {maximum_records}")
+            raise ValidationError(
+                format_error_message(
+                    error_type="Invalid Parameter",
+                    details=f"maximum_records must be >= 1, got {maximum_records}",
+                    suggestion="Use maximum_records >= 1 to retrieve at least one record",
+                    context={"parameter": "maximum_records", "value": maximum_records},
+                )
+            )
 
         if maximum_records > 100:
             logger.warning(
@@ -309,9 +381,13 @@ class SWBClient:
 
         # Validate recordPacking parameter
         if record_packing not in ("xml", "string"):
-            raise ValueError(
-                f"Invalid recordPacking value: {record_packing}. "
-                "Valid values are 'xml' or 'string'."
+            raise ValidationError(
+                format_error_message(
+                    error_type="Invalid Parameter",
+                    details=f"recordPacking must be 'xml' or 'string', got '{record_packing}'",
+                    suggestion="Use record_packing='xml' (default) or record_packing='string'",
+                    context={"parameter": "record_packing", "value": record_packing},
+                )
             )
 
         # Build CQL query if index is specified
@@ -365,6 +441,18 @@ class SWBClient:
 
             # Ensure UTF-8 encoding for proper handling of German umlauts
             response.encoding = "utf-8"
+        except (requests.Timeout, requests.ConnectionError) as e:
+            logger.error(f"Network error during API request: {e}")
+            error_msg = format_error_message(
+                error_type="Network Error",
+                details=f"Failed to connect to {self.base_url}",
+                suggestion="Check your internet connection and verify the server is accessible",
+                context={
+                    "url": self.base_url,
+                    "error": str(e),
+                },
+            )
+            raise NetworkError(error_msg) from e
         except requests.RequestException as e:
             logger.error(f"API request failed: {e}")
             raise
@@ -392,14 +480,28 @@ class SWBClient:
         """
         # Validate input
         if not isbn or not isbn.strip():
-            raise ValueError("ISBN cannot be empty")
+            raise ValidationError(
+                format_error_message(
+                    error_type="Invalid Parameter",
+                    details="ISBN cannot be empty",
+                    suggestion="Provide a valid ISBN (e.g., '978-3-16-148410-0' or '9783161484100')",
+                    context={"parameter": "isbn", "value": isbn},
+                )
+            )
 
         # Remove common ISBN separators
         clean_isbn = isbn.replace("-", "").replace(" ", "")
 
         # Check if anything remains after cleaning
         if not clean_isbn:
-            raise ValueError("ISBN cannot be empty after removing separators")
+            raise ValidationError(
+                format_error_message(
+                    error_type="Invalid Parameter",
+                    details="ISBN cannot be empty after removing separators",
+                    suggestion="Provide a valid ISBN with at least some digits",
+                    context={"parameter": "isbn", "value": isbn, "cleaned": clean_isbn},
+                )
+            )
 
         return self.search(
             clean_isbn,
@@ -429,13 +531,27 @@ class SWBClient:
         """
         # Validate input
         if not issn or not issn.strip():
-            raise ValueError("ISSN cannot be empty")
+            raise ValidationError(
+                format_error_message(
+                    error_type="Invalid Parameter",
+                    details="ISSN cannot be empty",
+                    suggestion="Provide a valid ISSN (e.g., '1234-5678' or '12345678')",
+                    context={"parameter": "issn", "value": issn},
+                )
+            )
 
         clean_issn = issn.replace("-", "").replace(" ", "")
 
         # Check if anything remains after cleaning
         if not clean_issn:
-            raise ValueError("ISSN cannot be empty after removing separators")
+            raise ValidationError(
+                format_error_message(
+                    error_type="Invalid Parameter",
+                    details="ISSN cannot be empty after removing separators",
+                    suggestion="Provide a valid ISSN with at least some digits",
+                    context={"parameter": "issn", "value": issn, "cleaned": clean_issn},
+                )
+            )
 
         return self.search(
             clean_issn,
@@ -479,13 +595,34 @@ class SWBClient:
         """
         # Validate input parameters
         if not scan_clause or not scan_clause.strip():
-            raise ValueError("scan_clause cannot be empty")
+            raise ValidationError(
+                format_error_message(
+                    error_type="Invalid Parameter",
+                    details="scan_clause cannot be empty",
+                    suggestion="Provide a scan clause (e.g., 'pica.per=Goe' to scan author names)",
+                    context={"parameter": "scan_clause", "value": scan_clause},
+                )
+            )
 
         if response_position < 1:
-            raise ValueError(f"response_position must be >= 1, got {response_position}")
+            raise ValidationError(
+                format_error_message(
+                    error_type="Invalid Parameter",
+                    details=f"response_position must be >= 1, got {response_position}",
+                    suggestion="Use response_position >= 1 (1 is the first position)",
+                    context={"parameter": "response_position", "value": response_position},
+                )
+            )
 
         if maximum_terms < 1:
-            raise ValueError(f"maximum_terms must be >= 1, got {maximum_terms}")
+            raise ValidationError(
+                format_error_message(
+                    error_type="Invalid Parameter",
+                    details=f"maximum_terms must be >= 1, got {maximum_terms}",
+                    suggestion="Use maximum_terms >= 1 to retrieve at least one term",
+                    context={"parameter": "maximum_terms", "value": maximum_terms},
+                )
+            )
 
         params: dict[str, str | int] = {
             "version": self.SRU_VERSION,
@@ -513,6 +650,19 @@ class SWBClient:
 
             # Ensure UTF-8 encoding for proper handling of German umlauts
             response.encoding = "utf-8"
+        except (requests.Timeout, requests.ConnectionError) as e:
+            logger.error(f"Network error during scan request: {e}")
+            error_msg = format_error_message(
+                error_type="Network Error",
+                details=f"Failed to connect to {self.base_url}",
+                suggestion="Check your internet connection and verify the server is accessible",
+                context={
+                    "url": self.base_url,
+                    "scan_clause": scan_clause,
+                    "error": str(e),
+                },
+            )
+            raise NetworkError(error_msg) from e
         except requests.RequestException as e:
             logger.error(f"Scan request failed: {e}")
             raise
@@ -566,6 +716,18 @@ class SWBClient:
 
             # Ensure UTF-8 encoding
             response.encoding = "utf-8"
+        except (requests.Timeout, requests.ConnectionError) as e:
+            logger.error(f"Network error during explain request: {e}")
+            error_msg = format_error_message(
+                error_type="Network Error",
+                details=f"Failed to connect to {self.base_url}",
+                suggestion="Check your internet connection and verify the server is accessible",
+                context={
+                    "url": self.base_url,
+                    "error": str(e),
+                },
+            )
+            raise NetworkError(error_msg) from e
         except requests.RequestException as e:
             logger.error(f"Explain request failed: {e}")
             raise
@@ -624,13 +786,34 @@ class SWBClient:
         """
         # Validate input parameters
         if not ppn or not ppn.strip():
-            raise ValueError("ppn cannot be empty")
+            raise ValidationError(
+                format_error_message(
+                    error_type="Invalid Parameter",
+                    details="ppn cannot be empty",
+                    suggestion="Provide a valid PPN (PICA Production Number) from a search result",
+                    context={"parameter": "ppn", "value": ppn},
+                )
+            )
 
         if start_record < 1:
-            raise ValueError(f"start_record must be >= 1, got {start_record}")
+            raise ValidationError(
+                format_error_message(
+                    error_type="Invalid Parameter",
+                    details=f"start_record must be >= 1, got {start_record}",
+                    suggestion="Use start_record >= 1 (1 is the first record)",
+                    context={"parameter": "start_record", "value": start_record},
+                )
+            )
 
         if maximum_records < 1:
-            raise ValueError(f"maximum_records must be >= 1, got {maximum_records}")
+            raise ValidationError(
+                format_error_message(
+                    error_type="Invalid Parameter",
+                    details=f"maximum_records must be >= 1, got {maximum_records}",
+                    suggestion="Use maximum_records >= 1 to retrieve at least one record",
+                    context={"parameter": "maximum_records", "value": maximum_records},
+                )
+            )
 
         # Construct CQL query using K10plus band search attributes:
         # - pica.1049: Control number (PPN) linking
@@ -685,7 +868,17 @@ class SWBClient:
             root = etree.fromstring(xml_bytes, parser=SECURE_PARSER)
         except etree.XMLSyntaxError as e:
             logger.error(f"Failed to parse XML response: {e}")
-            raise ValueError(f"Invalid XML response: {e}") from e
+            error_msg = format_error_message(
+                error_type="XML Parse Error",
+                details=f"Failed to parse XML response from {self.base_url}",
+                suggestion="Check if the server is returning valid XML. Try a different profile if available.",
+                context={
+                    "url": self.base_url,
+                    "query": query,
+                    "error": str(e),
+                },
+            )
+            raise ParseError(error_msg, xml_snippet=xml_data[:500] if isinstance(xml_data, str) else str(xml_data)[:500]) from e
 
         # Extract total number of results
         total_results_elem = root.find(
@@ -1178,7 +1371,17 @@ class SWBClient:
             root = etree.fromstring(xml_bytes, parser=SECURE_PARSER)
         except etree.XMLSyntaxError as e:
             logger.error(f"Failed to parse scan XML response: {e}")
-            raise ValueError(f"Invalid scan XML response: {e}") from e
+            error_msg = format_error_message(
+                error_type="XML Parse Error",
+                details=f"Failed to parse scan XML response from {self.base_url}",
+                suggestion="Check if the server is returning valid XML. Try a different profile if available.",
+                context={
+                    "url": self.base_url,
+                    "scan_clause": scan_clause,
+                    "error": str(e),
+                },
+            )
+            raise ParseError(error_msg, xml_snippet=xml_data[:500] if isinstance(xml_data, str) else str(xml_data)[:500]) from e
 
         # Parse scan terms
         # The scan response uses a different namespace structure
@@ -1197,7 +1400,17 @@ class SWBClient:
             error_message = (
                 message_elem.text if message_elem is not None else "Unknown error"
             )
-            raise ValueError(f"SRU scan error ({error_uri}): {error_message}")
+            error_msg = format_error_message(
+                error_type="SRU Scan Error",
+                details=f"Server returned diagnostic error: {error_message}",
+                suggestion="Check the scan clause syntax or try a different index",
+                context={
+                    "scan_clause": scan_clause,
+                    "error_uri": error_uri,
+                    "error_message": error_message,
+                },
+            )
+            raise APIError(error_msg)
 
         terms = []
         term_elements = root.findall(".//srw:term", namespaces=ns)
@@ -1259,7 +1472,16 @@ class SWBClient:
             root = etree.fromstring(xml_bytes, parser=SECURE_PARSER)
         except etree.XMLSyntaxError as e:
             logger.error(f"Failed to parse explain XML response: {e}")
-            raise ValueError(f"Invalid explain XML response: {e}") from e
+            error_msg = format_error_message(
+                error_type="XML Parse Error",
+                details=f"Failed to parse explain XML response from {self.base_url}",
+                suggestion="Check if the server is returning valid XML. Try a different profile if available.",
+                context={
+                    "url": self.base_url,
+                    "error": str(e),
+                },
+            )
+            raise ParseError(error_msg, xml_snippet=xml_data[:500] if isinstance(xml_data, str) else str(xml_data)[:500]) from e
 
         # Namespaces for explain response
         # Note: Support both 2.0 and 2.1 versions of the explain schema

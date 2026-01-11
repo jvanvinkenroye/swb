@@ -3,6 +3,7 @@
 import pytest
 
 from swb.api import SWBClient
+from swb.exceptions import ValidationError
 from swb.models import RelationType
 
 
@@ -17,34 +18,34 @@ class TestSearchValidation:
 
     def test_search_empty_query_raises_error(self, client: SWBClient) -> None:
         """Test that empty query raises ValueError."""
-        with pytest.raises(ValueError, match="Query cannot be empty"):
+        with pytest.raises(ValidationError, match="Query cannot be empty"):
             client.search("")
 
     def test_search_whitespace_query_raises_error(self, client: SWBClient) -> None:
         """Test that whitespace-only query raises ValueError."""
-        with pytest.raises(ValueError, match="Query cannot be empty"):
+        with pytest.raises(ValidationError, match="Query cannot be empty"):
             client.search("   ")
 
     def test_search_start_record_zero_raises_error(self, client: SWBClient) -> None:
         """Test that start_record=0 raises ValueError."""
-        with pytest.raises(ValueError, match="start_record must be >= 1, got 0"):
+        with pytest.raises(ValidationError, match="start_record must be >= 1, got 0"):
             client.search("test", start_record=0)
 
     def test_search_start_record_negative_raises_error(self, client: SWBClient) -> None:
         """Test that negative start_record raises ValueError."""
-        with pytest.raises(ValueError, match="start_record must be >= 1, got -1"):
+        with pytest.raises(ValidationError, match="start_record must be >= 1, got -1"):
             client.search("test", start_record=-1)
 
     def test_search_maximum_records_zero_raises_error(self, client: SWBClient) -> None:
         """Test that maximum_records=0 raises ValueError."""
-        with pytest.raises(ValueError, match="maximum_records must be >= 1, got 0"):
+        with pytest.raises(ValidationError, match="maximum_records must be >= 1, got 0"):
             client.search("test", maximum_records=0)
 
     def test_search_maximum_records_negative_raises_error(
         self, client: SWBClient
     ) -> None:
         """Test that negative maximum_records raises ValueError."""
-        with pytest.raises(ValueError, match="maximum_records must be >= 1, got -5"):
+        with pytest.raises(ValidationError, match="maximum_records must be >= 1, got -5"):
             client.search("test", maximum_records=-5)
 
     def test_search_maximum_records_over_100_logs_warning(
@@ -55,6 +56,7 @@ class TestSearchValidation:
 
         with patch.object(client.session, "get") as mock_get:
             mock_response = Mock()
+            mock_response.status_code = 200
             mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
             <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
                 <numberOfRecords>0</numberOfRecords>
@@ -75,12 +77,12 @@ class TestSearchByISBNValidation:
 
     def test_search_by_isbn_empty_raises_error(self, client: SWBClient) -> None:
         """Test that empty ISBN raises ValueError."""
-        with pytest.raises(ValueError, match="ISBN cannot be empty"):
+        with pytest.raises(ValidationError, match="ISBN cannot be empty"):
             client.search_by_isbn("")
 
     def test_search_by_isbn_whitespace_raises_error(self, client: SWBClient) -> None:
         """Test that whitespace-only ISBN raises ValueError."""
-        with pytest.raises(ValueError, match="ISBN cannot be empty"):
+        with pytest.raises(ValidationError, match="ISBN cannot be empty"):
             client.search_by_isbn("   ")
 
     def test_search_by_isbn_only_separators_raises_error(
@@ -88,14 +90,14 @@ class TestSearchByISBNValidation:
     ) -> None:
         """Test that ISBN with only separators raises ValueError."""
         with pytest.raises(
-            ValueError, match="ISBN cannot be empty after removing separators"
+            ValidationError, match="ISBN cannot be empty after removing separators"
         ):
             client.search_by_isbn("---")
 
     def test_search_by_isbn_only_spaces_raises_error(self, client: SWBClient) -> None:
-        """Test that ISBN with only spaces raises ValueError."""
+        """Test that ISBN with only spaces raises ValidationError."""
         with pytest.raises(
-            ValueError, match="ISBN cannot be empty"
+            ValidationError, match="ISBN cannot be empty"
         ):
             client.search_by_isbn("   ")
 
@@ -105,27 +107,27 @@ class TestSearchByISSNValidation:
 
     def test_search_by_issn_empty_raises_error(self, client: SWBClient) -> None:
         """Test that empty ISSN raises ValueError."""
-        with pytest.raises(ValueError, match="ISSN cannot be empty"):
+        with pytest.raises(ValidationError, match="ISSN cannot be empty"):
             client.search_by_issn("")
 
     def test_search_by_issn_whitespace_raises_error(self, client: SWBClient) -> None:
         """Test that whitespace-only ISSN raises ValueError."""
-        with pytest.raises(ValueError, match="ISSN cannot be empty"):
+        with pytest.raises(ValidationError, match="ISSN cannot be empty"):
             client.search_by_issn("   ")
 
     def test_search_by_issn_only_separators_raises_error(
         self, client: SWBClient
     ) -> None:
-        """Test that ISSN with only separators raises ValueError."""
+        """Test that ISSN with only separators or spaces raises ValidationError."""
         with pytest.raises(
-            ValueError, match="ISSN cannot be empty after removing separators"
+            ValidationError, match="ISSN cannot be empty after removing separators"
         ):
             client.search_by_issn("---")
 
     def test_search_by_issn_only_spaces_raises_error(self, client: SWBClient) -> None:
-        """Test that ISSN with only spaces raises ValueError."""
+        """Test that ISSN with only separators or spaces raises ValidationError."""
         with pytest.raises(
-            ValueError, match="ISSN cannot be empty"
+            ValidationError, match="ISSN cannot be empty"
         ):
             client.search_by_issn("   ")
 
@@ -135,38 +137,38 @@ class TestScanValidation:
 
     def test_scan_empty_clause_raises_error(self, client: SWBClient) -> None:
         """Test that empty scan_clause raises ValueError."""
-        with pytest.raises(ValueError, match="scan_clause cannot be empty"):
+        with pytest.raises(ValidationError, match="scan_clause cannot be empty"):
             client.scan("")
 
     def test_scan_whitespace_clause_raises_error(self, client: SWBClient) -> None:
         """Test that whitespace-only scan_clause raises ValueError."""
-        with pytest.raises(ValueError, match="scan_clause cannot be empty"):
+        with pytest.raises(ValidationError, match="scan_clause cannot be empty"):
             client.scan("   ")
 
     def test_scan_response_position_zero_raises_error(
         self, client: SWBClient
     ) -> None:
         """Test that response_position=0 raises ValueError."""
-        with pytest.raises(ValueError, match="response_position must be >= 1, got 0"):
+        with pytest.raises(ValidationError, match="response_position must be >= 1, got 0"):
             client.scan("pica.per=Test", response_position=0)
 
     def test_scan_response_position_negative_raises_error(
         self, client: SWBClient
     ) -> None:
         """Test that negative response_position raises ValueError."""
-        with pytest.raises(ValueError, match="response_position must be >= 1, got -1"):
+        with pytest.raises(ValidationError, match="response_position must be >= 1, got -1"):
             client.scan("pica.per=Test", response_position=-1)
 
     def test_scan_maximum_terms_zero_raises_error(self, client: SWBClient) -> None:
         """Test that maximum_terms=0 raises ValueError."""
-        with pytest.raises(ValueError, match="maximum_terms must be >= 1, got 0"):
+        with pytest.raises(ValidationError, match="maximum_terms must be >= 1, got 0"):
             client.scan("pica.per=Test", maximum_terms=0)
 
     def test_scan_maximum_terms_negative_raises_error(
         self, client: SWBClient
     ) -> None:
         """Test that negative maximum_terms raises ValueError."""
-        with pytest.raises(ValueError, match="maximum_terms must be >= 1, got -3"):
+        with pytest.raises(ValidationError, match="maximum_terms must be >= 1, got -3"):
             client.scan("pica.per=Test", maximum_terms=-3)
 
 
@@ -175,40 +177,40 @@ class TestSearchRelatedValidation:
 
     def test_search_related_empty_ppn_raises_error(self, client: SWBClient) -> None:
         """Test that empty ppn raises ValueError."""
-        with pytest.raises(ValueError, match="ppn cannot be empty"):
+        with pytest.raises(ValidationError, match="ppn cannot be empty"):
             client.search_related("", RelationType.CHILD)
 
     def test_search_related_whitespace_ppn_raises_error(
         self, client: SWBClient
     ) -> None:
         """Test that whitespace-only ppn raises ValueError."""
-        with pytest.raises(ValueError, match="ppn cannot be empty"):
+        with pytest.raises(ValidationError, match="ppn cannot be empty"):
             client.search_related("   ", RelationType.CHILD)
 
     def test_search_related_start_record_zero_raises_error(
         self, client: SWBClient
     ) -> None:
         """Test that start_record=0 raises ValueError."""
-        with pytest.raises(ValueError, match="start_record must be >= 1, got 0"):
+        with pytest.raises(ValidationError, match="start_record must be >= 1, got 0"):
             client.search_related("123456", RelationType.CHILD, start_record=0)
 
     def test_search_related_start_record_negative_raises_error(
         self, client: SWBClient
     ) -> None:
         """Test that negative start_record raises ValueError."""
-        with pytest.raises(ValueError, match="start_record must be >= 1, got -2"):
+        with pytest.raises(ValidationError, match="start_record must be >= 1, got -2"):
             client.search_related("123456", RelationType.CHILD, start_record=-2)
 
     def test_search_related_maximum_records_zero_raises_error(
         self, client: SWBClient
     ) -> None:
         """Test that maximum_records=0 raises ValueError."""
-        with pytest.raises(ValueError, match="maximum_records must be >= 1, got 0"):
+        with pytest.raises(ValidationError, match="maximum_records must be >= 1, got 0"):
             client.search_related("123456", RelationType.CHILD, maximum_records=0)
 
     def test_search_related_maximum_records_negative_raises_error(
         self, client: SWBClient
     ) -> None:
         """Test that negative maximum_records raises ValueError."""
-        with pytest.raises(ValueError, match="maximum_records must be >= 1, got -4"):
+        with pytest.raises(ValidationError, match="maximum_records must be >= 1, got -4"):
             client.search_related("123456", RelationType.CHILD, maximum_records=-4)
