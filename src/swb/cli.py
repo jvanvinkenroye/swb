@@ -195,6 +195,20 @@ def display_results(
                     f"\n[dim]Record {idx} - No holdings information available[/dim]"
                 )
 
+    # Display facets if present
+    if response.facets and not output_file:
+        console.print("\n[bold cyan]Facets[/bold cyan]")
+        for facet in response.facets:
+            console.print(f"\n[bold]{facet.name}:[/bold]")
+            facet_table = Table(show_header=False, box=box.SIMPLE)
+            facet_table.add_column("Value", style="green", no_wrap=False)
+            facet_table.add_column("Count", style="yellow", justify="right", width=10)
+
+            for value in facet.values:
+                facet_table.add_row(value.value, str(value.count))
+
+            console.print(facet_table)
+
     # Show pagination info
     if response.has_more:
         console.print(
@@ -204,6 +218,16 @@ def display_results(
 
     # Save to file if requested
     if output_file:
+        # Add facets to file output
+        if response.facets:
+            output_lines.append(f"\n{'=' * 80}")
+            output_lines.append("Facets")
+            output_lines.append(f"{'=' * 80}")
+            for facet in response.facets:
+                output_lines.append(f"\n{facet.name}:")
+                for value in facet.values:
+                    output_lines.append(f"  {value.value}: {value.count}")
+
         try:
             output_file.parent.mkdir(parents=True, exist_ok=True)
             output_file.write_text("\n".join(output_lines))
@@ -395,6 +419,18 @@ def cli(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     is_flag=True,
     help="Display library holdings information.",
 )
+@click.option(
+    "--facets",
+    type=str,
+    help="Comma-separated list of facet fields (requires SRU 2.0). "
+         "Example: year,author,subject",
+)
+@click.option(
+    "--facet-limit",
+    type=int,
+    default=10,
+    help="Maximum number of values per facet. Default is 10.",
+)
 @click.pass_context
 def search(
     ctx: click.Context,
@@ -411,6 +447,8 @@ def search(
     sort_order: str,
     packing: str,
     holdings: bool,
+    facets: str | None,
+    facet_limit: int,
 ) -> None:
     """Search the SWB catalog.
 
@@ -423,6 +461,8 @@ def search(
         swb search "Goethe" --index author --max 20
 
         swb search 'pica.tit="Faust" and pica.per="Goethe"'
+
+        swb search "Python" --facets year,author --facet-limit 20
     """
     try:
         # Convert string arguments to enums
@@ -430,6 +470,9 @@ def search(
         fmt = RecordFormat[record_format.upper()]
         sort_by_enum = SortBy[sort_by.upper()] if sort_by else None
         sort_order_enum = SortOrder[sort_order.upper()]
+
+        # Parse facets list
+        facets_list = facets.split(",") if facets and facets.strip() else None
 
         base_url = resolve_base_url(profile, url)
         with SWBClient(base_url=base_url) as client:
@@ -441,6 +484,8 @@ def search(
                     console.print(
                         f"[bold]Sort:[/bold] {sort_by_enum.name} ({sort_order_enum.name})"
                     )
+                if facets_list:
+                    console.print(f"[bold]Facets:[/bold] {', '.join(facets_list)}")
                 console.print()
 
             response = client.search(
@@ -452,6 +497,8 @@ def search(
                 sort_by=sort_by_enum,
                 sort_order=sort_order_enum,
                 record_packing=packing,
+                facets=facets_list,
+                facet_limit=facet_limit,
             )
 
             display_results(

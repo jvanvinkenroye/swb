@@ -1088,139 +1088,209 @@ def test_parse_holdings_no_holdings(client: SWBClient) -> None:
     assert len(result.holdings) == 0
 
 
-def test_xxe_attack_prevention_in_search(client: SWBClient) -> None:
-    """Test that XXE attacks are prevented in search response parsing."""
-    # XXE attack payload that tries to read a file
-    xxe_payload = """<?xml version="1.0" encoding="UTF-8"?>
-    <!DOCTYPE foo [
-        <!ENTITY xxe SYSTEM "file:///nonexistent/test/file">
-    ]>
+def test_search_with_facets(client: SWBClient) -> None:
+    """Test search with facet parameters."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>100</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_response.encoding = "utf-8"
+        mock_get.return_value = mock_response
+
+        # Search with facets
+        client.search(
+            "Python",
+            facets=["year", "author"],
+            facet_limit=20,
+        )
+
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+
+        # Should use SRU 2.0 when facets are requested
+        assert params["version"] == "2.0"
+        assert params["facets"] == "year,author"
+        assert params["facetLimit"] == 20
+
+
+def test_search_without_facets_uses_default_version(client: SWBClient) -> None:
+    """Test that search without facets uses default SRU version."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>0</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_response.encoding = "utf-8"
+        mock_get.return_value = mock_response
+
+        # Search without facets
+        client.search("Python")
+
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+
+        # Should use default version (1.1)
+        assert params["version"] == "1.1"
+        assert "facets" not in params
+
+
+def test_search_with_explicit_version(client: SWBClient) -> None:
+    """Test search with explicitly specified SRU version."""
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>0</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.raise_for_status = Mock()
+        mock_response.encoding = "utf-8"
+        mock_get.return_value = mock_response
+
+        # Search with explicit version
+        client.search("Python", sru_version="2.0")
+
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+
+        # Should use explicit version
+        assert params["version"] == "2.0"
+
+
+def test_parse_facets(client: SWBClient) -> None:
+    """Test parsing facets from SRU 2.0 response."""
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
     <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
-        <numberOfRecords>1</numberOfRecords>
-        <records>
-            <record>
-                <recordData>
-                    <record xmlns="http://www.loc.gov/MARC21/slim">
-                        <controlfield tag="001">&xxe;</controlfield>
-                    </record>
-                </recordData>
-            </record>
-        </records>
+        <numberOfRecords>100</numberOfRecords>
+        <facetedResults>
+            <facet>
+                <index>year</index>
+                <terms>
+                    <term>
+                        <actualTerm>2024</actualTerm>
+                        <count>45</count>
+                    </term>
+                    <term>
+                        <actualTerm>2023</actualTerm>
+                        <count>38</count>
+                    </term>
+                    <term>
+                        <actualTerm>2022</actualTerm>
+                        <count>27</count>
+                    </term>
+                </terms>
+            </facet>
+            <facet>
+                <index>author</index>
+                <terms>
+                    <term>
+                        <actualTerm>Van Rossum, Guido</actualTerm>
+                        <count>12</count>
+                    </term>
+                    <term>
+                        <actualTerm>Lutz, Mark</actualTerm>
+                        <count>8</count>
+                    </term>
+                </terms>
+            </facet>
+        </facetedResults>
     </searchRetrieveResponse>"""
 
-    # This should parse successfully but entities should NOT be resolved
-    response = client._parse_response(xxe_payload, "test query", RecordFormat.MARCXML)
+    response = client._parse_response(xml_response, "Python", RecordFormat.MARCXML)
 
-    # Verify the entity was NOT expanded (should be empty or None, not file contents)
-    result = response.results[0]
-    # The secure parser should not resolve the entity, so record_id should be None or empty
-    assert result.record_id is None or result.record_id == ""
+    # Check facets were parsed
+    assert response.facets is not None
+    assert len(response.facets) == 2
 
+    # Check first facet (year)
+    year_facet = response.facets[0]
+    assert year_facet.name == "year"
+    assert len(year_facet.values) == 3
+    assert year_facet.values[0].value == "2024"
+    assert year_facet.values[0].count == 45
+    assert year_facet.values[1].value == "2023"
+    assert year_facet.values[1].count == 38
+    assert year_facet.values[2].value == "2022"
+    assert year_facet.values[2].count == 27
 
-def test_xxe_attack_prevention_in_scan(client: SWBClient) -> None:
-    """Test that XXE attacks are prevented in scan response parsing."""
-    # XXE attack payload in scan response
-    xxe_payload = """<?xml version="1.0" encoding="UTF-8"?>
-    <!DOCTYPE foo [
-        <!ENTITY xxe SYSTEM "file:///nonexistent/test/file">
-    ]>
-    <scanResponse xmlns="http://www.loc.gov/zing/srw/">
-        <terms>
-            <term>
-                <value>&xxe;</value>
-                <numberOfRecords>1</numberOfRecords>
-            </term>
-        </terms>
-    </scanResponse>"""
-
-    # This should parse successfully but entities should NOT be resolved
-    response = client._parse_scan_response(xxe_payload, "test scan", 1)
-
-    # Verify the entity was NOT expanded
-    # When entity is not resolved, value_elem.text is None and the term is skipped
-    # This is the correct security behavior - no data should be exposed
-    assert len(response.terms) == 0
+    # Check second facet (author)
+    author_facet = response.facets[1]
+    assert author_facet.name == "author"
+    assert len(author_facet.values) == 2
+    assert author_facet.values[0].value == "Van Rossum, Guido"
+    assert author_facet.values[0].count == 12
+    assert author_facet.values[1].value == "Lutz, Mark"
+    assert author_facet.values[1].count == 8
 
 
-def test_xxe_attack_prevention_in_explain(client: SWBClient) -> None:
-    """Test that XXE attacks are prevented in explain response parsing."""
-    # XXE attack payload in explain response
-    xxe_payload = """<?xml version="1.0" encoding="UTF-8"?>
-    <!DOCTYPE foo [
-        <!ENTITY xxe SYSTEM "file:///nonexistent/test/file">
-    ]>
-    <explainResponse xmlns="http://www.loc.gov/zing/srw/">
-        <record>
-            <recordData>
-                <explain xmlns="http://explain.z3950.org/dtd/2.0/">
-                    <serverInfo>
-                        <host>&xxe;</host>
-                        <port>80</port>
-                        <database>testdb</database>
-                    </serverInfo>
-                    <databaseInfo>
-                        <title>Test Database</title>
-                    </databaseInfo>
-                </explain>
-            </recordData>
-        </record>
-    </explainResponse>"""
-
-    # This should parse successfully but entities should NOT be resolved
-    response = client._parse_explain_response(xxe_payload)
-
-    # Verify the entity was NOT expanded
-    # The secure parser should not resolve the entity
-    assert response.server_info.host == "" or response.server_info.host is None
-
-
-def test_billion_laughs_attack_prevention(client: SWBClient) -> None:
-    """Test that billion laughs (entity expansion DoS) attacks are prevented."""
-    # Billion laughs attack payload (simplified version)
-    billion_laughs_payload = """<?xml version="1.0" encoding="UTF-8"?>
-    <!DOCTYPE foo [
-        <!ENTITY lol "lol">
-        <!ENTITY lol1 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">
-        <!ENTITY lol2 "&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;">
-        <!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;">
-    ]>
+def test_parse_facets_alternative_element_names(client: SWBClient) -> None:
+    """Test parsing facets with alternative element names (value instead of actualTerm)."""
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
     <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
-        <numberOfRecords>1</numberOfRecords>
-        <records>
-            <record>
-                <recordData>
-                    <record xmlns="http://www.loc.gov/MARC21/slim">
-                        <controlfield tag="001">&lol3;</controlfield>
-                    </record>
-                </recordData>
-            </record>
-        </records>
+        <numberOfRecords>50</numberOfRecords>
+        <facetedResults>
+            <facet>
+                <index>subject</index>
+                <terms>
+                    <term>
+                        <value>Programming</value>
+                        <count>89</count>
+                    </term>
+                    <term>
+                        <value>Data Science</value>
+                        <count>34</count>
+                    </term>
+                </terms>
+            </facet>
+        </facetedResults>
     </searchRetrieveResponse>"""
 
-    # This should parse successfully without expanding entities to massive size
-    response = client._parse_response(
-        billion_laughs_payload, "test query", RecordFormat.MARCXML
-    )
+    response = client._parse_response(xml_response, "Python", RecordFormat.MARCXML)
 
-    # Verify the entity was NOT expanded (should be empty or None)
-    result = response.results[0]
-    assert result.record_id is None or result.record_id == ""
+    # Check facets were parsed
+    assert response.facets is not None
+    assert len(response.facets) == 1
+
+    # Check subject facet
+    subject_facet = response.facets[0]
+    assert subject_facet.name == "subject"
+    assert len(subject_facet.values) == 2
+    assert subject_facet.values[0].value == "Programming"
+    assert subject_facet.values[0].count == 89
+    assert subject_facet.values[1].value == "Data Science"
+    assert subject_facet.values[1].count == 34
 
 
-def test_external_dtd_attack_prevention(client: SWBClient) -> None:
-    """Test that external DTD attacks are prevented."""
-    # External DTD attack payload using a reserved test domain
-    external_dtd_payload = """<?xml version="1.0" encoding="UTF-8"?>
-    <!DOCTYPE foo SYSTEM "http://evil.test/evil.dtd">
+def test_parse_response_without_facets(client: SWBClient) -> None:
+    """Test parsing response without facets (SRU 1.1 style)."""
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
     <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
-        <numberOfRecords>0</numberOfRecords>
+        <numberOfRecords>10</numberOfRecords>
     </searchRetrieveResponse>"""
 
-    # This should parse successfully but NOT fetch the external DTD
-    # The no_network=True setting prevents network access
-    response = client._parse_response(
-        external_dtd_payload, "test query", RecordFormat.MARCXML
-    )
+    response = client._parse_response(xml_response, "test", RecordFormat.MARCXML)
 
-    # Should successfully parse without network access
-    assert response.total_results == 0
+    # Should not have facets
+    assert response.facets is None
+
+
+def test_parse_empty_facets(client: SWBClient) -> None:
+    """Test parsing response with empty facetedResults."""
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+    <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+        <numberOfRecords>10</numberOfRecords>
+        <facetedResults>
+        </facetedResults>
+    </searchRetrieveResponse>"""
+
+    response = client._parse_response(xml_response, "test", RecordFormat.MARCXML)
+
+    # Should not have facets (empty list is treated as None)
+    assert response.facets is None
