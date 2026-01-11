@@ -42,3 +42,4 @@ dmypy.json
 *.local
 .env
 .env.local
+site/
