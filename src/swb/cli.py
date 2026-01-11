@@ -472,7 +472,7 @@ def search(
         sort_order_enum = SortOrder[sort_order.upper()]
 
         # Parse facets list
-        facets_list = facets.split(",") if facets else None
+        facets_list = facets.split(",") if facets and facets.strip() else None
 
         base_url = resolve_base_url(profile, url)
         with SWBClient(base_url=base_url) as client:

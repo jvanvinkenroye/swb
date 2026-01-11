@@ -247,8 +247,9 @@ class SWBClient:
 
         # Add facet parameters if specified (SRU 2.0 feature)
         if facets:
-            # SRU 2.0 facet parameter format (may vary by implementation)
-            # Common formats: comma-separated list or multiple parameters
+            # SRU 2.0 facet parameter format
+            # This implementation uses comma-separated list format: facets=year,author,subject
+            # The facetLimit parameter controls max values per facet
             params["facets"] = ",".join(facets)
             params["facetLimit"] = facet_limit
 
