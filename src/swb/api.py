@@ -1,6 +1,7 @@
 """SRU API client for the Südwestdeutscher Bibliotheksverbund (SWB)."""
 
 import logging
+import time
 from types import TracebackType
 
 import requests
@@ -144,6 +145,7 @@ class SWBClient:
         base_url: str | None = None,
         timeout: int = 30,
         api_key: str | None = None,
+        rate_limit: int | None = None,
     ) -> None:
         """Initialize the SWB API client.
 
@@ -152,9 +154,13 @@ class SWBClient:
                      Defaults to the official SWB endpoint.
             timeout: Request timeout in seconds. Defaults to 30.
             api_key: Optional API key for authentication if required by the server.
+            rate_limit: Maximum requests per second (None for no limit).
+                       Useful for batch processing to avoid overwhelming the server.
+                       Example: rate_limit=5 allows max 5 requests per second.
         """
         self.base_url = base_url or self.DEFAULT_BASE_URL
         self.timeout = timeout
+        self.rate_limit = rate_limit
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -167,6 +173,9 @@ class SWBClient:
         # Add API key if provided
         if api_key:
             self.session.headers.update({"Authorization": f"Bearer {api_key}"})
+
+        # Initialize rate limiting state
+        self._request_times: list[float] = []
 
     def _handle_http_errors(self, response: requests.Response) -> None:
         """Handle common HTTP errors with helpful messages.
@@ -191,6 +200,39 @@ class SWBClient:
             raise requests.HTTPError(error_msg, response=response)
 
         response.raise_for_status()
+
+    def _wait_for_rate_limit(self) -> None:
+        """Enforce rate limiting if configured.
+
+        Uses a sliding window approach to limit requests per second.
+        If rate limit is exceeded, sleeps until enough time has passed.
+        """
+        if not self.rate_limit:
+            return
+
+        now = time.time()
+
+        # Remove requests older than 1 second (sliding window)
+        self._request_times = [
+            req_time for req_time in self._request_times if now - req_time < 1.0
+        ]
+
+        # Check if we've hit the rate limit
+        if len(self._request_times) >= self.rate_limit:
+            # Calculate how long to wait
+            oldest = self._request_times[0]
+            sleep_time = 1.0 - (now - oldest)
+
+            if sleep_time > 0:
+                logger.debug(
+                    f"Rate limit reached ({self.rate_limit} req/s), "
+                    f"sleeping {sleep_time:.2f}s"
+                )
+                time.sleep(sleep_time)
+                now = time.time()
+
+        # Record this request
+        self._request_times.append(now)
 
     def search(
         self,
@@ -307,6 +349,9 @@ class SWBClient:
 
         logger.info(f"Searching SWB: {cql_query}")
         logger.debug(f"Request parameters: {params}")
+
+        # Enforce rate limiting if configured
+        self._wait_for_rate_limit()
 
         try:
             response = self.session.get(
@@ -453,6 +498,9 @@ class SWBClient:
         logger.info(f"Scanning index: {scan_clause}")
         logger.debug(f"Request parameters: {params}")
 
+        # Enforce rate limiting if configured
+        self._wait_for_rate_limit()
+
         try:
             response = self.session.get(
                 self.base_url,
@@ -502,6 +550,9 @@ class SWBClient:
 
         logger.info("Fetching server explain record")
         logger.debug(f"Request parameters: {params}")
+
+        # Enforce rate limiting if configured
+        self._wait_for_rate_limit()
 
         try:
             response = self.session.get(
