@@ -1000,7 +1000,8 @@ def test_parse_holdings(client: SWBClient) -> None:
     # Check first holding
     holding1 = result.holdings[0]
     assert holding1.library_code == "DE-21"
-    assert holding1.library_name == "Universität Stuttgart"
+    # DE-21 is the ISIL of Universitaetsbibliothek Tuebingen (Sigel registry)
+    assert holding1.library_name == "Universitätsbibliothek Tübingen"
     assert holding1.access_url == "https://example.com/access"
     assert holding1.access_note == "Campus access only"
     assert holding1.collection == "E-Book Collection"
@@ -1008,7 +1009,8 @@ def test_parse_holdings(client: SWBClient) -> None:
     # Check second holding
     holding2 = result.holdings[1]
     assert holding2.library_code == "DE-15"
-    assert holding2.library_name == "Universitätsbibliothek Rostock"
+    # DE-15 is the ISIL of Universitaetsbibliothek Leipzig (Sigel registry)
+    assert holding2.library_name == "Universitätsbibliothek Leipzig"
     assert holding2.access_url == "https://example.com/rostock"
     assert holding2.access_note == "Online access"
     assert holding2.collection is None

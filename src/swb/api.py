@@ -76,78 +76,98 @@ class SWBClient:
         "pica": "info:srw/schema/5/picaXML-v1.0",
     }
 
-    # Library code to name mapping (commonly seen in SWB and other German library networks)
+    # Library code (ISIL) to name mapping, resolved via https://lobid.org
+    # (data source: Sigel registry, https://sigel.staatsbibliothek-berlin.de/).
+    # Codes not listed here fall back to None; DE-M504xxx codes are Onleihe.
     LIBRARY_NAMES = {
-        # Major universities
-        "DE-1": "Universität Tübingen",
-        "DE-14": "Universität Konstanz",
-        "DE-15": "Universitätsbibliothek Rostock",
-        "DE-16": "Universität Freiburg",
-        "DE-21": "Universität Stuttgart",
-        "DE-26": "Universität Hohenheim",
-        "DE-28": "Universität Ulm",
-        "DE-29": "Universität Heidelberg",
-        "DE-705": "Universität Mannheim",
-        "DE-31": "Badische Landesbibliothek Karlsruhe",
-        # Technical universities
-        "DE-Ch1": "TU Chemnitz",
-        "DE-289": "Pädagogische Hochschule Karlsruhe",
-        "DE-Fn1": "Hochschule Furtwangen",
-        "DE-1033": "Hochschule Offenburg",
-        "DE-Mh35": "Hochschule Mannheim",
-        "DE-943": "Hochschule für Technik Stuttgart",
-        "DE-Ofb1": "Hochschule Biberach",
-        "DE-16-300": "Universitätsbibliothek Freiburg (Sondersammlung)",
-        "DE-14-1": "Universität Konstanz (Fachbereich 1)",
-        "DE-14-2": "Universität Konstanz (Fachbereich 2)",
-        # Pedagogical universities
-        "DE-Frei129": "Pädagogische Hochschule Freiburg",
-        "DE-Lg1": "Pädagogische Hochschule Ludwigsburg",
-        "DE-747": "Hochschule Ravensburg-Weingarten",
-        "DE-Frei26": "PH Freiburg",
-        "DE-Zi4": "Pädagogische Hochschule Schwäbisch Gmünd",
-        "DE-953": "PH Weingarten",
-        "DE-Frei160": "Evangelische Hochschule Freiburg",
-        "DE-944": "HfWU Nürtingen-Geislingen",
-        "DE-753": "Hochschule Aalen",
-        "DE-576": "Hochschule Esslingen",
-        "DE-840": "Duale Hochschule Baden-Württemberg (DHBW) Stuttgart",
-        "DE-Loer2": "Hochschule für Forstwirtschaft Rottenburg",
-        # Other important institutions
-        "DE-752": "Kommunikations- und Informationszentrum Ulm",
-        "DE-751": "Thüringer Universitäts- und Landesbibliothek Jena",
-        # Additional common libraries
-        "DE-2": "Universität Hohenheim",
-        "DE-3": "Universität Stuttgart (Zentralbibliothek)",
-        "DE-4": "Universität Tübingen (Theologische Fakultät)",
-        "DE-5": "Universität Tübingen (Medizinische Fakultät)",
-        "DE-6": "Universität Tübingen (Juristische Fakultät)",
-        "DE-7": "Universität Tübingen (Wirtschafts- und Sozialwissenschaftliche Fakultät)",
-        "DE-8": "Universität Tübingen (Philosophische Fakultät)",
-        "DE-9": "Universität Tübingen (Mathematisch-Naturwissenschaftliche Fakultät)",
-        "DE-10": "Universität Konstanz (Hauptbibliothek)",
-        "DE-11": "Universität Konstanz (Fachbereichsbibliothek)",
-        "DE-12": "Universität Freiburg (Universitätsbibliothek)",
-        "DE-13": "Universität Freiburg (Fachbibliotheken)",
-        "DE-17": "Universität Heidelberg",
-        "DE-18": "Universität Heidelberg (Medizinische Fakultät)",
-        "DE-19": "Universität Heidelberg (Juristische Fakultät)",
-        "DE-20": "Universität Heidelberg (Philosophische Fakultät)",
-        "DE-22": "Universität Stuttgart (Fachbibliotheken)",
-        "DE-23": "Universität Stuttgart (Technische Fakultät)",
-        "DE-24": "Universität Stuttgart (Architektur und Stadtplanung)",
-        "DE-25": "Universität Stuttgart (Bau- und Umweltingenieurwissenschaften)",
-        "DE-27": "Universität Ulm (Medizinische Fakultät)",
-        "DE-30": "Universität Mannheim (Schlossbibliothek)",
-        # State libraries
-        "DE-32": "Württembergische Landesbibliothek Stuttgart",
-        "DE-33": "Bayerische Staatsbibliothek München",
-        "DE-34": "Staatsbibliothek zu Berlin",
-        # Special libraries
-        "DE-100": "Deutsche Nationalbibliothek Frankfurt",
-        "DE-101": "Deutsche Nationalbibliothek Leipzig",
-        "DE-200": "Zentralbibliothek Zürich (for Swiss holdings)",
-        "DE-300": "Österreichische Nationalbibliothek Wien (for Austrian holdings)",
+        "DE-14": "Sächsische Landesbibliothek - Staats- und Universitätsbibliothek Dresden",
+        "DE-15": "Universitätsbibliothek Leipzig",
+        "DE-16": "Universitätsbibliothek Heidelberg",
+        "DE-16-300": "Medizinische Fakultät Mannheim der Universität Heidelberg, Bibliothek",
+        "DE-21": "Universitätsbibliothek Tübingen",
+        "DE-21-24": "Juristisches Seminar, Bibliothek",
+        "DE-24": "Württembergische Landesbibliothek",
+        "DE-25": "Universitätsbibliothek Freiburg",
+        "DE-31": "Badische Landesbibliothek",
+        "DE-59": "Stadt Chemnitz, Kulturbetrieb, Stadtbibliothek",
+        "DE-77": "Universität Mainz, Zentralbibliothek",
+        "DE-77-001": "Universität Mainz, Elektronische Ressourcen",
+        "DE-77-006": "Universität Mainz, Bereichsbibliothek Mathematik, Informatik, Naturwissenschaften und Technik",
+        "DE-90": "Karlsruher Institut für Technologie, KIT-Bibliothek",
+        "DE-93": "Universitätsbibliothek Stuttgart",
+        "DE-100": "Kommunikations-, Informations- und Medienzentrum der Universität Hohenheim",
+        "DE-101": "Deutsche Nationalbibliothek",
+        "DE-105": "Technische Universität Bergakademie Freiberg, Bibliothek 'Georgius Agricola'",
+        "DE-180": "Universitätsbibliothek Mannheim",
+        "DE-208": "Bibliothek des Bundesgerichtshofs",
+        "DE-289": "Universität Ulm, Kommunikations- und Informationszentrum, Bibliotheksservices",
+        "DE-291": "Saarländische Universitäts- und Landesbibliothek",
+        "DE-291-102": "Universität des Saarlandes, Deutsch-Europäisches Juridicum",
+        "DE-291-415": "INM - Leibniz-Institut für Neue Materialien gGmbH, NTNM-Bibliothek",
+        "DE-352": "Universität Konstanz, Kommunikations-, Informations-, Medienzentrum (KIM)",
+        "DE-475": "Stadtarchiv, Wissenschaftliche Bibliothek",
+        "DE-520": "Hochschule für Technik und Wirtschaft Dresden, Bibliothek",
+        "DE-540": "Hochschule für Bildende Künste Dresden, Bibliothek",
+        "DE-576": "Bibliotheksservice-Zentrum Baden-Württemberg (BSZ)",
+        "DE-615": "Fachinformationsverbund Internationale Beziehungen und Länderkunde",
+        "DE-631": "Landesbibliographie Baden-Württemberg",
+        "DE-747": "Hochschulbibliothek Weingarten",
+        "DE-751": "Hochschulbibliothek Karlsruhe (Pädagogische Hochschule Karlsruhe)",
+        "DE-752": "Pädagogische Hochschule, Bibliothek",
+        "DE-753": "Hochschule Esslingen, Bibliothek",
+        "DE-840": "Bibliothek LIV Sontheim/TechCampus",
+        "DE-840-3": "Bibliothek LIV HN Bildungscampus",
+        "DE-941": "Duale Hochschule Baden-Württemberg Mosbach, Bibliothek",
+        "DE-943": "Technische Hochschule Ulm, Bibliothek",
+        "DE-944": "Hochschule Aalen, Bibliothek",
+        "DE-950": "Hochschule für Wirtschaft und Umwelt Nürtingen-Geislingen, Bibliothek Nürtingen",
+        "DE-951": "Hochschulbibliothek Pforzheim, Bereichsbibliothek Technik und Wirtschaft",
+        "DE-953": "Technische Hochschule Mannheim, Hochschulbibliothek",
+        "DE-955": "Hochschule für Forstwirtschaft Rottenburg, Bibliothek",
+        "DE-958": "Hochschule der Medien, Bibliothek Standort Nobelstr.",
+        "DE-984": "Hochschule für Gestaltung Schwäbisch Gmünd, Bibliothek",
+        "DE-991": "Hochschule Albstadt-Sigmaringen, Bibliothek Sigmaringen",
+        "DE-1033": "Hochschule für Technik Stuttgart, Bibliothek",
+        "DE-1141": "Zeppelin Universität gGmbH, Bibliothek",
+        "DE-1147": "Hochschule für öffentliche Verwaltung und Finanzen Ludwigsburg, Bibliothek",
+        "DE-1973": "Staatliche Hochschule für Bildende Künste, Städelschule, Bibliothek",
+        "DE-2491": "Deutsches Historisches Institut in Rom, Bibliothek",
+        "DE-2620": "Sächsische Bibliografie",
+        "DE-4304": "Ev. Hochschul- und Zentralbibliothek Baden und Württemberg, Elektronische Ressourcen",
+        "DE-B212": "Max-Planck-Institut für ausländisches und internationales Privatrecht, Bibliothek",
+        "DE-B69": "Bundesministerium der Justiz und für Verbraucherschutz BMJV, Bibliothek",
+        "DE-Bin1": "Technische Hochschule Bingen, Bibliothek",
+        "DE-Ch1": "Technische Universität Chemnitz, Universitätsbibliothek",
+        "DE-F197": "Peace Research Institute Frankfurt, Bibliothek",
+        "DE-F25": "Freies Deutsches Hochstift / Frankfurter Goethe-Museum, Bibliothek",
+        "DE-Fn1": "Hochschule Furtwangen University. Informatik, Technik, Wirtschaft, Medien. Campus Furtwangen, Bibliothek",
+        "DE-Fn1-TUT": "Hochschule Furtwangen University. Informatik, Technik, Wirtschaft, Medien. Campus Tuttlingen, Bibliothek",
+        "DE-Frei129": "Bibliothek der Pädagogischen Hochschule Freiburg/Breisgau",
+        "DE-Frei160": "Evangelische Hochschule Freiburg, Hochschulbibliothek",
+        "DE-Frei50": "Hochschule für Musik Freiburg, Bibliothek",
+        "DE-Frei85": "Max-Planck-Institut zur Erforschung von Kriminalität, Sicherheit und Recht, Bibliothek",
+        "DE-He76": "Bibliothek der Pädagogischen Hochschule Heidelberg",
+        "DE-Hed2": "Duale Hochschule Baden-Württemberg Heidenheim, Bibliothek",
+        "DE-Ka26": "Bundesverfassungsgericht, Bibliothek",
+        "DE-Kon4": "HTWG Hochschule Konstanz Technik, Wirtschaft und Gestaltung, Bibliothek",
+        "DE-L189": "Hochschule für Technik, Wirtschaft und Kultur Leipzig, Hochschulbibliothek",
+        "DE-Lg3": "Deutsch-Französisches Institut, Frankreich-Bibliothek",
+        "DE-Loer2": "Duale Hochschule Baden-Württemberg Lörrach, Zentralbibliothek",
+        "DE-Mh31": "Staatliche Hochschule für Musik und Darstellende Kunst Mannheim, Bibliothek",
+        "DE-Mh35": "Duale Hochschule Baden-Württemberg Mannheim, Bibliothek",
+        "DE-Mit1": "Hochschule Mittweida (FH), Hochschulbibliothek",
+        "DE-N1": "Germanisches Nationalmuseum, Bibliothek",
+        "DE-Ofb1": "Hochschule Offenburg, University of Applied Sciences, Bibliothek Campus Offenburg",
+        "DE-Rav1": "Duale Hochschule Baden-Württemberg Ravensburg, Bibliothek",
+        "DE-Rt2": "Hochschulbibliothek Reutlingen (Lernzentrum)",
+        "DE-Sa16": "Hochschule für Technik und Wirtschaft des Saarlandes, Bibliothek / Bereich Goebenstraße",
+        "DE-Sa18": "Max-Planck-Institut für Informatik, Campusbibliothek für Informatik und Mathematik",
+        "DE-Stg117": "Ev. Hochschul- und Zentralbibliothek Baden und Württemberg, Standort Stuttgart-Möhringen",
+        "DE-Stg259": "Duale Hochschule Baden-Württemberg Stuttgart, Bibliothek",
+        "DE-Tue135": "Index theologicus der Universitätsbibliothek Tübingen",
+        "DE-Vil2": "Duale Hochschule Baden-Württemberg Villingen-Schwenningen, Bibliothek",
+        "DE-Zi4": "Hochschule Zittau / Görlitz, Hochschulbibliothek",
+        "DE-Zwi2": "Westsächsische Hochschule Zwickau, Bibliothek",
     }
 
     def __init__(
@@ -610,7 +630,10 @@ class SWBClient:
                     error_type="Invalid Parameter",
                     details=f"response_position must be >= 1, got {response_position}",
                     suggestion="Use response_position >= 1 (1 is the first position)",
-                    context={"parameter": "response_position", "value": response_position},
+                    context={
+                        "parameter": "response_position",
+                        "value": response_position,
+                    },
                 )
             )
 
@@ -878,7 +901,12 @@ class SWBClient:
                     "error": str(e),
                 },
             )
-            raise ParseError(error_msg, xml_snippet=xml_data[:500] if isinstance(xml_data, str) else str(xml_data)[:500]) from e
+            raise ParseError(
+                error_msg,
+                xml_snippet=xml_data[:500]
+                if isinstance(xml_data, str)
+                else str(xml_data)[:500],
+            ) from e
 
         # Extract total number of results
         total_results_elem = root.find(
@@ -944,11 +972,15 @@ class SWBClient:
         facets = []
 
         # Parse each facet field
-        facet_fields = faceted_results.findall(".//srw:facet", namespaces=self.NAMESPACES)
+        facet_fields = faceted_results.findall(
+            ".//srw:facet", namespaces=self.NAMESPACES
+        )
 
         for facet_field in facet_fields:
             # Get facet name/index
-            facet_index_elem = facet_field.find(".//srw:index", namespaces=self.NAMESPACES)
+            facet_index_elem = facet_field.find(
+                ".//srw:index", namespaces=self.NAMESPACES
+            )
             if facet_index_elem is None or not facet_index_elem.text:
                 continue
 
@@ -960,10 +992,14 @@ class SWBClient:
 
             for term in terms:
                 # Get term value
-                term_value_elem = term.find(".//srw:actualTerm", namespaces=self.NAMESPACES)
+                term_value_elem = term.find(
+                    ".//srw:actualTerm", namespaces=self.NAMESPACES
+                )
                 if term_value_elem is None or not term_value_elem.text:
                     # Try alternative element name
-                    term_value_elem = term.find(".//srw:value", namespaces=self.NAMESPACES)
+                    term_value_elem = term.find(
+                        ".//srw:value", namespaces=self.NAMESPACES
+                    )
                     if term_value_elem is None or not term_value_elem.text:
                         continue
 
@@ -971,7 +1007,11 @@ class SWBClient:
 
                 # Get term count
                 count_elem = term.find(".//srw:count", namespaces=self.NAMESPACES)
-                count = int(count_elem.text) if count_elem is not None and count_elem.text else 0
+                count = (
+                    int(count_elem.text)
+                    if count_elem is not None and count_elem.text
+                    else 0
+                )
 
                 facet_values.append(FacetValue(value=term_value, count=count))
 
@@ -1122,7 +1162,35 @@ class SWBClient:
         # Extract library holdings (MARC 924)
         result.holdings = self._parse_holdings(record_elem)
 
+        # Generate OPAC link if record_id is available
+        if result.record_id:
+            result.link = self._generate_opac_link(result.record_id)
+
         return result
+
+    def _generate_opac_link(self, ppn: str) -> str:
+        """Generate OPAC link based on the base URL.
+
+        Args:
+            ppn: PICA Production Number (record ID)
+
+        Returns:
+            URL to the record in the OPAC
+        """
+        if "k10plus.de/swb" in self.base_url:
+            return f"https://swb.bsz-bw.de/DB=2.1/PPNSET?PPN={ppn}"
+        elif "k10plus.de/opac" in self.base_url:
+            return f"https://k10plus.bsz-bw.de/DB=2.1/PPNSET?PPN={ppn}"
+        elif "gbv.de" in self.base_url:
+            return f"https://gvk.gbv.de/PPN={ppn}"
+        elif "dnb.de" in self.base_url:
+            return f"https://d-nb.info/{ppn}"
+        elif "bib-bvb.de" in self.base_url:
+            return f"https://bvbm1.bib-bvb.de/webclient/DeliveryManager?ppn={ppn}"
+        elif "hebis.de" in self.base_url:
+            return f"https://hebis.bsz-bw.de/DB=2.1/PPNSET?PPN={ppn}"
+        else:
+            return f"https://swb.bsz-bw.de/DB=2.1/PPNSET?PPN={ppn}"
 
     def _parse_holdings(self, record_elem: etree._Element) -> list[LibraryHolding]:
         """Parse library holdings from MARC field 924.
@@ -1382,7 +1450,12 @@ class SWBClient:
                     "error": str(e),
                 },
             )
-            raise ParseError(error_msg, xml_snippet=xml_data[:500] if isinstance(xml_data, str) else str(xml_data)[:500]) from e
+            raise ParseError(
+                error_msg,
+                xml_snippet=xml_data[:500]
+                if isinstance(xml_data, str)
+                else str(xml_data)[:500],
+            ) from e
 
         # Parse scan terms
         # The scan response uses a different namespace structure
@@ -1482,7 +1555,12 @@ class SWBClient:
                     "error": str(e),
                 },
             )
-            raise ParseError(error_msg, xml_snippet=xml_data[:500] if isinstance(xml_data, str) else str(xml_data)[:500]) from e
+            raise ParseError(
+                error_msg,
+                xml_snippet=xml_data[:500]
+                if isinstance(xml_data, str)
+                else str(xml_data)[:500],
+            ) from e
 
         # Namespaces for explain response
         # Note: Support both 2.0 and 2.1 versions of the explain schema
