@@ -66,7 +66,8 @@ __all__ = [
 
 # Optional TUI imports (requires textual extra)
 try:
-    from swb.tui import SWBTUIDirect, run_tui
+    # Re-export for the public API; ruff cannot see the conditional __all__.extend
+    from swb.tui import SWBTUIDirect, run_tui  # noqa: F401
 
     __all__.extend(["run_tui", "SWBTUIDirect"])
 except ImportError:

@@ -11,6 +11,7 @@ Run only integration tests with:
 import pytest
 
 from swb.api import SWBClient
+from swb.exceptions import SWBError
 from swb.models import RecordFormat, RelationType, SearchIndex
 
 
@@ -266,4 +267,4 @@ class TestRealAPIErrorHandling:
                 assert response is not None
             except Exception as e:
                 # If it fails, it should fail with a reasonable error
-                assert isinstance(e, (ValueError, requests.RequestException))
+                assert isinstance(e, SWBError)

@@ -177,7 +177,7 @@ class TestRateLimiting:
             start = time.time()
 
             # Make 3 explain requests
-            for i in range(3):
+            for _ in range(3):
                 client.explain()
 
             elapsed = time.time() - start

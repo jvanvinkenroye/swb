@@ -313,7 +313,7 @@ class SWBTUIDirect(App[None]):
             markdown_text += f"**Record ID:** {result.record_id or 'N/A'}\n\n"
             markdown_text += "---\n\n"
 
-        results_area.update(Markdown(markdown_text))  # type: ignore
+        results_area.update(Markdown(markdown_text))
         logger.info("Results displayed successfully in UI")
         error_area.visible = False
 

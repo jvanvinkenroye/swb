@@ -12,7 +12,7 @@ from swb.exceptions import (
     ParseError,
     ServerError,
 )
-from swb.models import RecordFormat, RelationType
+from swb.models import RelationType
 
 
 @pytest.fixture
@@ -341,7 +341,7 @@ class TestFacetedSearch:
             mock_response.encoding = "utf-8"
             mock_get.return_value = mock_response
 
-            response = client.search("test", facets=["format"])
+            client.search("test", facets=["format"])
 
             # Verify facets parameter was included
             call_args = mock_get.call_args

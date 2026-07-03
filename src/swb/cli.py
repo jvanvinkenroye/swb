@@ -25,8 +25,8 @@ from swb.models import (
 )
 from swb.profiles import PROFILES, get_profile
 
-console = Console()
-console_err = Console(stderr=True)
+console = Console(width=150)
+console_err = Console(stderr=True, width=150)
 
 
 def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
@@ -80,21 +80,24 @@ def display_results(
     console.print()
 
     # Create results table
-    table = Table(show_header=True, header_style="bold magenta")
+    table = Table(show_header=True, header_style="bold magenta", expand=True)
     table.add_column("#", style="dim", width=4)
     table.add_column("Title", style="cyan", no_wrap=False)
     table.add_column("Author", style="green")
     table.add_column("Year", style="yellow", width=6)
+    table.add_column("Link", style="blue", no_wrap=True)
     table.add_column("ISBN", style="blue")
 
     output_lines = []
 
     for idx, result in enumerate(response.results, 1):
+        link_display = result.link if result.link else "N/A"
         table.add_row(
             str(idx),
             result.title or "N/A",
             result.author or "N/A",
             result.year or "N/A",
+            link_display,
             result.isbn or "N/A",
         )
 
@@ -109,6 +112,8 @@ def display_results(
             output_lines.append(f"Publisher: {result.publisher or 'N/A'}")
             output_lines.append(f"ISBN: {result.isbn or 'N/A'}")
             output_lines.append(f"Record ID: {result.record_id or 'N/A'}")
+            if result.link:
+                output_lines.append(f"OPAC Link: {result.link}")
 
             if show_holdings and result.holdings:
                 output_lines.append("\nLibrary Holdings:")
@@ -257,7 +262,6 @@ def handle_api_error(e: Exception, base_url: str) -> None:
         base_url: URL that was being accessed
     """
     from swb.exceptions import (
-        APIError,
         AuthenticationError,
         NetworkError,
         ParseError,
@@ -272,7 +276,7 @@ def handle_api_error(e: Exception, base_url: str) -> None:
         sys.exit(2)  # Invalid argument
 
     elif isinstance(e, AuthenticationError):
-        console_err.print(f"[red]Authentication Error:[/red]")
+        console_err.print("[red]Authentication Error:[/red]")
         console_err.print(str(e))
         console_err.print()
         console_err.print("[bold]Available profiles:[/bold]")
@@ -284,24 +288,24 @@ def handle_api_error(e: Exception, base_url: str) -> None:
         sys.exit(3)  # Authentication failure
 
     elif isinstance(e, RateLimitError):
-        console_err.print(f"[red]Rate Limit Error:[/red]")
+        console_err.print("[red]Rate Limit Error:[/red]")
         console_err.print(str(e))
         sys.exit(3)  # Rate limit error
 
     elif isinstance(e, ServerError):
-        console_err.print(f"[red]Server Error:[/red]")
+        console_err.print("[red]Server Error:[/red]")
         console_err.print(str(e))
         sys.exit(5)  # Server error
 
     elif isinstance(e, ParseError):
-        console_err.print(f"[red]Parse Error:[/red]")
+        console_err.print("[red]Parse Error:[/red]")
         console_err.print(str(e))
         if hasattr(e, "xml_snippet") and e.xml_snippet:
             console_err.print(f"\n[dim]XML snippet:[/dim] {e.xml_snippet[:200]}...")
         sys.exit(4)  # Parse error
 
     elif isinstance(e, NetworkError):
-        console_err.print(f"[red]Network Error:[/red]")
+        console_err.print("[red]Network Error:[/red]")
         console_err.print(str(e))
         sys.exit(5)  # Network error
 
@@ -341,7 +345,9 @@ def handle_api_error(e: Exception, base_url: str) -> None:
     else:
         # Unexpected error
         console_err.print(f"[red]Unexpected Error:[/red] {e}", style="red")
-        console_err.print("\nPlease report this at: https://github.com/jvanvinkenroye/swb/issues")
+        console_err.print(
+            "\nPlease report this at: https://github.com/jvanvinkenroye/swb/issues"
+        )
         sys.exit(99)
 
 
@@ -471,7 +477,7 @@ def cli(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     "--facets",
     type=str,
     help="Comma-separated list of facet fields (requires SRU 2.0). "
-         "Example: year,author,subject",
+    "Example: year,author,subject",
 )
 @click.option(
     "--facet-limit",
