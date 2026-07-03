@@ -151,6 +151,7 @@ class SWBClient:
         "DE-Ka26": "Bundesverfassungsgericht, Bibliothek",
         "DE-Kon4": "HTWG Hochschule Konstanz Technik, Wirtschaft und Gestaltung, Bibliothek",
         "DE-L189": "Hochschule für Technik, Wirtschaft und Kultur Leipzig, Hochschulbibliothek",
+        "DE-Lg1": "Pädagogische Hochschulbibliothek Ludwigsburg",
         "DE-Lg3": "Deutsch-Französisches Institut, Frankreich-Bibliothek",
         "DE-Loer2": "Duale Hochschule Baden-Württemberg Lörrach, Zentralbibliothek",
         "DE-Mh31": "Staatliche Hochschule für Musik und Darstellende Kunst Mannheim, Bibliothek",
@@ -168,6 +169,8 @@ class SWBClient:
         "DE-Vil2": "Duale Hochschule Baden-Württemberg Villingen-Schwenningen, Bibliothek",
         "DE-Zi4": "Hochschule Zittau / Görlitz, Hochschulbibliothek",
         "DE-Zwi2": "Westsächsische Hochschule Zwickau, Bibliothek",
+        # Fictitious library marking freely accessible e-resources in SWB/K10plus
+        "LFER": "Kostenfreie elektronische Ressource",
     }
 
     def __init__(
