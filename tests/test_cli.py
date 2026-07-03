@@ -1,12 +1,29 @@
 """Tests for the CLI interface."""
 
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 from click.testing import CliRunner
 
-from swb.cli import cli, resolve_base_url
-from swb.models import RecordFormat, SearchResponse, SearchResult
+from swb.cli import cli, handle_api_error, resolve_base_url
+from swb.exceptions import (
+    AuthenticationError,
+    NetworkError,
+    ParseError,
+    RateLimitError,
+    ServerError,
+    SWBError,
+    ValidationError,
+)
+from swb.models import (
+    Facet,
+    FacetValue,
+    LibraryHolding,
+    RecordFormat,
+    SearchResponse,
+    SearchResult,
+)
 
 
 @pytest.fixture
@@ -370,3 +387,235 @@ def test_resolve_base_url_invalid_profile():
     """Test that invalid profile raises ValueError."""
     with pytest.raises(ValueError, match="Unknown profile: invalid"):
         resolve_base_url(profile="invalid", url=None)
+
+
+# ---------------------------------------------------------------------------
+# handle_api_error exit codes
+# ---------------------------------------------------------------------------
+
+
+class TestHandleApiErrorExitCodes:
+    """Each exception type must map to its documented exit code."""
+
+    @pytest.mark.parametrize(
+        ("exception", "expected_code"),
+        [
+            (ValidationError("bad input"), 2),
+            (AuthenticationError("forbidden", status_code=403), 3),
+            (RateLimitError("slow down", status_code=429), 3),
+            (ParseError("bad xml", xml_snippet="<broken>"), 4),
+            (NetworkError("connection refused"), 5),
+            (ServerError("boom", status_code=500), 5),
+            (SWBError("generic"), 1),
+            (RuntimeError("unexpected"), 99),
+        ],
+    )
+    def test_exit_code(self, exception: Exception, expected_code: int) -> None:
+        with pytest.raises(SystemExit) as exc_info:
+            handle_api_error(exception, "https://example.org/sru")
+        assert exc_info.value.code == expected_code
+
+
+# ---------------------------------------------------------------------------
+# Holdings display
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def mock_holdings_response() -> SearchResponse:
+    """Search response with one result covering all holding display cases."""
+    return SearchResponse(
+        total_results=1,
+        results=[
+            SearchResult(
+                record_id="1",
+                title="Faust",
+                author="Goethe",
+                year="1808",
+                holdings=[
+                    LibraryHolding(
+                        library_code="DE-21",
+                        library_name="Universität Tübingen",
+                        collection="Main",
+                    ),
+                    LibraryHolding(
+                        library_code="DE-M504105",
+                        library_name="Onleihe",
+                        access_url="https://onleihe.example",
+                        access_note="Titel nur digital verfügbar",
+                    ),
+                    LibraryHolding(library_code="DE-999XYZ", library_name=None),
+                    LibraryHolding(library_code="", library_name=None),
+                ],
+            )
+        ],
+        query='pica.all="Faust"',
+    )
+
+
+def _make_mock_client(mock_client_class: Mock, response: SearchResponse) -> Mock:
+    mock_client = Mock()
+    mock_client.search.return_value = response
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
+    mock_client_class.return_value = mock_client
+    return mock_client
+
+
+@patch("swb.cli.SWBClient")
+def test_search_holdings_display(
+    mock_client_class: Mock,
+    runner: CliRunner,
+    mock_holdings_response: SearchResponse,
+) -> None:
+    """Known name shows 'Name (CODE)', unknown shows code, empty shows fallback."""
+    _make_mock_client(mock_client_class, mock_holdings_response)
+
+    result = runner.invoke(cli, ["search", "Faust", "--holdings"])
+
+    assert result.exit_code == 0
+    assert "Universität Tübingen" in result.output
+    assert "(DE-21)" in result.output
+    assert "Onleihe" in result.output
+    assert "(DE-M504105)" in result.output
+    # Unknown code is shown as-is, without a generic prefix
+    assert "DE-999XYZ" in result.output
+    assert "German Library" not in result.output
+    assert "Unknown Library" in result.output
+
+
+@patch("swb.cli.SWBClient")
+def test_search_no_holdings_available(
+    mock_client_class: Mock,
+    runner: CliRunner,
+    mock_search_response: SearchResponse,
+) -> None:
+    """Records without holdings show an informative note."""
+    _make_mock_client(mock_client_class, mock_search_response)
+
+    result = runner.invoke(cli, ["search", "Python", "--holdings"])
+
+    assert result.exit_code == 0
+    assert "No holdings information available" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Output file, raw mode, facets
+# ---------------------------------------------------------------------------
+
+
+@patch("swb.cli.SWBClient")
+def test_search_output_file(
+    mock_client_class: Mock,
+    runner: CliRunner,
+    mock_holdings_response: SearchResponse,
+    tmp_path: Path,
+) -> None:
+    """--output writes record details including holdings to a file."""
+    _make_mock_client(mock_client_class, mock_holdings_response)
+    output_file = tmp_path / "results.txt"
+
+    result = runner.invoke(
+        cli,
+        ["search", "Faust", "--holdings", "--output", str(output_file)],
+    )
+
+    assert result.exit_code == 0
+    content = output_file.read_text()
+    assert "Title: Faust" in content
+    assert "Author: Goethe" in content
+    assert "Library: Universität Tübingen" in content
+    assert "Access URL: https://onleihe.example" in content
+
+
+@patch("swb.cli.SWBClient")
+def test_search_raw_output(
+    mock_client_class: Mock,
+    runner: CliRunner,
+) -> None:
+    """--raw prints the raw record data."""
+    response = SearchResponse(
+        total_results=1,
+        results=[
+            SearchResult(
+                record_id="1",
+                title="Faust",
+                raw_data="<record><title>Faust</title></record>",
+            )
+        ],
+        query="q",
+    )
+    _make_mock_client(mock_client_class, response)
+
+    result = runner.invoke(cli, ["search", "Faust", "--raw"])
+
+    assert result.exit_code == 0
+    assert "Raw Data" in result.output
+    assert "<title>Faust</title>" in result.output
+
+
+@patch("swb.cli.SWBClient")
+def test_search_facets_display(
+    mock_client_class: Mock,
+    runner: CliRunner,
+) -> None:
+    """Facets returned by the server are rendered with counts."""
+    response = SearchResponse(
+        total_results=1,
+        results=[SearchResult(record_id="1", title="Faust")],
+        query="q",
+        facets=[
+            Facet(
+                name="year",
+                values=[FacetValue(value="2024", count=12), FacetValue("2023", 7)],
+            )
+        ],
+    )
+    _make_mock_client(mock_client_class, response)
+
+    result = runner.invoke(cli, ["search", "Faust", "--facets", "year"])
+
+    assert result.exit_code == 0
+    assert "Facets" in result.output
+    assert "year" in result.output
+    assert "2024" in result.output
+    assert "12" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Error paths through the CLI
+# ---------------------------------------------------------------------------
+
+
+@patch("swb.cli.SWBClient")
+def test_search_validation_error_exit_code(
+    mock_client_class: Mock,
+    runner: CliRunner,
+) -> None:
+    """A ValidationError from the client leads to exit code 2."""
+    mock_client = Mock()
+    mock_client.search.side_effect = ValidationError("empty query")
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
+    mock_client_class.return_value = mock_client
+
+    result = runner.invoke(cli, ["search", "Python"])
+
+    assert result.exit_code == 2
+
+
+@patch("swb.cli.SWBClient")
+def test_search_network_error_exit_code(
+    mock_client_class: Mock,
+    runner: CliRunner,
+) -> None:
+    """A NetworkError from the client leads to exit code 5."""
+    mock_client = Mock()
+    mock_client.search.side_effect = NetworkError("connection refused")
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
+    mock_client_class.return_value = mock_client
+
+    result = runner.invoke(cli, ["search", "Python"])
+
+    assert result.exit_code == 5
