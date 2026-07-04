@@ -23,6 +23,7 @@ Always use `uv` (never pip, never global installs).
 - `ref/api.md` — `SWBClient` methods, error handling, exit codes, holdings/library-name logic
 - `ref/cli.md` — all CLI commands and options
 - `ref/testing.md` — test layout, markers, mock conventions
+- `ref/skill.md` — how the personal Claude skill "swb-buchsuche" uses this CLI
 
 `api.py` (~1670 lines) and `cli.py` (~1190 lines) are large — check the ref docs first.
 
