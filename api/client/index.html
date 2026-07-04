@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
@@ -792,12 +792,12 @@
   <a href="#swb.api.SWBClient-functions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Functions
+        Methods:
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Functions">
+    <nav class="md-nav" aria-label="Methods:">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1313,12 +1313,12 @@
   <a href="#swb.api.SWBClient-functions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Functions
+        Methods:
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Functions">
+    <nav class="md-nav" aria-label="Methods:">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1563,7 +1563,7 @@
 
 
 
-<h3 id="swb.api.SWBClient-functions">Functions<a href="#swb.api.SWBClient-functions" class="headerlink" title="Permanent link">&para;</a></h3>
+<h3 id="swb.api.SWBClient-functions">Methods:<a href="#swb.api.SWBClient-functions" class="headerlink" title="Permanent link">&para;</a></h3>
 
 <div class="doc doc-object doc-function">
 
@@ -1605,7 +1605,7 @@
 
 
 <h4 id="swb.api.SWBClient.__init__" class="doc doc-heading">
-            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">base_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rate_limit</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">base_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rate_limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">record_schema</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index_map</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#swb.api.SWBClient.__init__" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -1687,6 +1687,41 @@
                 <p>Maximum requests per second (None for no limit).
        Useful for batch processing to avoid overwhelming the server.
        Example: rate_limit=5 allows max 5 requests per second.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>record_schema</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Catalog-specific recordSchema name used instead of
+          "marcxml" (e.g. "MARC21-xml" for the DNB endpoint).
+          Only applied when requesting RecordFormat.MARCXML.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>index_map</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maps standard pica.* index names to catalog-specific
+      ones (e.g. {"pica.tit": "TIT"} for the DNB endpoint).</p>
               </div>
             </td>
             <td>
