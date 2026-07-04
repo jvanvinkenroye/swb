@@ -17,9 +17,11 @@ A Python CLI client for querying the Südwestdeutscher Bibliotheksverbund (SWB) 
 - Multiple output formats (MARCXML, TurboMARC, MODS, PICA, Dublin Core)
 - Rich terminal output with formatted tables
 - Export search results to files
+- **Custom exception hierarchy** - Specific error types with meaningful CLI exit codes
+- **Optional rate limiting** - Limit requests per second to be polite to the servers
 - Comprehensive error handling and logging
 - Type-safe with full mypy support
-- Well-tested with pytest (83 tests, 82% API coverage)
+- Well-tested with pytest (179 tests, 71% coverage)
 
 ## Installation
 
@@ -298,11 +300,16 @@ Library Holdings:
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
 ┃ Library                      ┃ Collection      ┃ Access             ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
-│ Universität Tübingen (DE-21) │ E-Book          │ Online Access      │
-│                              │ Kohlhammer      │ Campus/VPN only    │
-│ UB Rostock (DE-15)           │ N/A             │ Online Access      │
+│ Universitätsbibliothek       │ E-Book          │ Online Access      │
+│ Tübingen (DE-21)             │ Kohlhammer      │ Campus/VPN only    │
+│ Onleihe (DE-M504202)         │ N/A             │ Online Access      │
+│ DE-F43                       │ N/A             │ N/A                │
 └──────────────────────────────┴─────────────────┴────────────────────┘
 ```
+
+Library names are resolved from a built-in mapping of verified ISIL codes
+(source: [Sigel registry](https://sigel.staatsbibliothek-berlin.de/)). Onleihe
+(digital lending) services are labeled as such; unknown codes are shown as-is.
 
 **Available with:**
 - `swb search` - Search commands
@@ -465,18 +472,21 @@ uv sync --dev
 ### Run Tests
 
 ```bash
-# Run all tests
-pytest
+# Run unit tests (fast, no network access)
+uv run pytest -m "not integration"
 
-# Run with coverage
-pytest --cov=swb --cov-report=html
+# Run all tests including integration tests (real API calls)
+uv run pytest
 
 # Run specific test file
-pytest tests/test_api.py
+uv run pytest tests/test_api.py
 
 # Run with verbose output
-pytest -v
+uv run pytest -v
 ```
+
+Coverage is collected automatically (terminal report + `htmlcov/`). Tests marked
+`integration` make real API calls; `slow` marks long-running ones.
 
 ### Code Quality
 
@@ -505,16 +515,21 @@ swb/
 │       ├── __init__.py      # Package initialization
 │       ├── api.py           # SRU API client
 │       ├── cli.py           # CLI interface
+│       ├── exceptions.py    # Custom exception hierarchy
 │       ├── models.py        # Data models
 │       ├── profiles.py      # Library catalog profiles
 │       └── tui.py           # Terminal user interface
 ├── tests/
-│   ├── __init__.py
 │   ├── test_api.py          # API client tests
+│   ├── test_api_validation.py  # Input validation tests
 │   ├── test_cli.py          # CLI tests
+│   ├── test_edge_cases.py   # Error and edge case tests
+│   ├── test_integration.py  # Real API integration tests
 │   ├── test_models.py       # Model tests
-│   └── test_profiles.py     # Profile tests
-├── docs/                    # Documentation
+│   ├── test_profiles.py     # Profile tests
+│   └── test_rate_limiting.py  # Rate limiter tests
+├── docs/                    # User documentation (MkDocs)
+├── ref/                     # Developer reference docs
 ├── pyproject.toml           # Project configuration
 ├── README.md                # This file
 └── .gitignore
@@ -529,8 +544,8 @@ The main API client class:
 ```python
 from swb import SWBClient, SearchIndex, RecordFormat, SortBy, SortOrder
 
-# Create client
-with SWBClient() as client:
+# Create client (optional: rate_limit=N requests/second, timeout in seconds)
+with SWBClient(rate_limit=5) as client:
     # Simple search
     response = client.search(
         "Python programming",
@@ -639,6 +654,31 @@ with SWBClient() as client:
     for term in scan_response.terms:
         print(f"{term.value}: {term.number_of_records} records")
 ```
+
+### Error Handling
+
+All errors raised by the client derive from `SWBError`:
+
+```python
+from swb import SWBClient, SWBError, ValidationError, NetworkError
+
+try:
+    with SWBClient() as client:
+        response = client.search("Python")
+except ValidationError as e:
+    print(f"Invalid input: {e}")
+except NetworkError as e:
+    print(f"Connection problem: {e}")
+except SWBError as e:
+    print(f"Other client error: {e}")
+```
+
+Available exceptions: `ValidationError`, `ParseError`, `NetworkError`, and
+`APIError` with its subclasses `AuthenticationError` (403), `RateLimitError`
+(429) and `ServerError` (5xx).
+
+The CLI maps these to exit codes: `2` validation, `3` authentication/rate
+limit, `4` parse, `5` network/server, `99` unexpected errors.
 
 ### Search Response
 
