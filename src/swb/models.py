@@ -101,6 +101,7 @@ class SearchResult:
         raw_data: Raw XML data from the API
         format: Format of the record data
         holdings: List of library holdings for this record
+        link: URL to the record in the OPAC
     """
 
     record_id: str | None = None
@@ -112,6 +113,7 @@ class SearchResult:
     raw_data: str | None = None
     format: RecordFormat = RecordFormat.MARCXML
     holdings: list[LibraryHolding] | None = None
+    link: str | None = None
 
     def __post_init__(self) -> None:
         """Initialize mutable default values."""
