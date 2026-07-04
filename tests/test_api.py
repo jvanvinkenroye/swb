@@ -1318,3 +1318,46 @@ def test_parse_empty_facets(client: SWBClient) -> None:
 
     # Should not have facets (empty list is treated as None)
     assert response.facets is None
+
+
+def test_record_schema_override_applied_for_marcxml() -> None:
+    """Configured record_schema replaces marcxml in request params."""
+    client = SWBClient(record_schema="MARC21-xml")
+    assert client._resolve_record_schema(RecordFormat.MARCXML) == "MARC21-xml"
+
+
+def test_record_schema_override_not_applied_for_other_formats() -> None:
+    """Other record formats are passed through unchanged."""
+    client = SWBClient(record_schema="MARC21-xml")
+    assert client._resolve_record_schema(RecordFormat.MODS) == RecordFormat.MODS.value
+
+
+def test_no_record_schema_override_by_default() -> None:
+    """Without override, the standard format value is used."""
+    client = SWBClient()
+    assert client._resolve_record_schema(RecordFormat.MARCXML) == "marcxml"
+
+
+def test_index_map_translates_index_in_query() -> None:
+    """Configured index_map rewrites index names in the CQL query."""
+    client = SWBClient(
+        record_schema="MARC21-xml", index_map={"pica.tit": "TIT", "pica.isb": "NUM"}
+    )
+    with patch.object(client.session, "get") as mock_get:
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
+        <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+            <numberOfRecords>0</numberOfRecords>
+        </searchRetrieveResponse>"""
+        mock_response.encoding = "utf-8"
+        mock_get.return_value = mock_response
+
+        client.search("Faust", index=SearchIndex.TITLE)
+        params = mock_get.call_args.kwargs["params"]
+        assert params["query"] == 'TIT="Faust"'
+        assert params["recordSchema"] == "MARC21-xml"
+
+        client.search_by_isbn("978-3-8252-6593-9")
+        params = mock_get.call_args.kwargs["params"]
+        assert params["query"] == 'NUM="9783825265939"'

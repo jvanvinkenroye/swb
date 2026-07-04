@@ -4,7 +4,7 @@ This module defines pre-configured profiles for accessing different German
 library union catalogs via their SRU interfaces.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -17,6 +17,9 @@ class CatalogProfile:
         display_name: Human-readable name
         description: Description of what this catalog covers
         region: Geographic or institutional coverage
+        record_schema: Catalog-specific recordSchema name for MARCXML requests
+                      (None means the standard "marcxml" is accepted)
+        index_map: Maps standard pica.* index names to catalog-specific ones
     """
 
     name: str
@@ -24,6 +27,8 @@ class CatalogProfile:
     display_name: str
     description: str
     region: str
+    record_schema: str | None = None
+    index_map: dict[str, str] = field(default_factory=dict)
 
 
 # Predefined catalog profiles
@@ -55,6 +60,16 @@ PROFILES = {
         display_name="DNB (Deutsche Nationalbibliothek)",
         description="German National Library catalog",
         region="Deutschland (National)",
+        # The DNB SRU endpoint rejects "marcxml" and uses its own index names
+        record_schema="MARC21-xml",
+        index_map={
+            "pica.all": "WOE",
+            "pica.tit": "TIT",
+            "pica.per": "PER",
+            "pica.sub": "SW",
+            "pica.isb": "NUM",
+            "pica.iss": "NUM",
+        },
     ),
     "bvb": CatalogProfile(
         name="bvb",

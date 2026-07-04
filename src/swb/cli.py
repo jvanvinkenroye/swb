@@ -3,6 +3,7 @@
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 import click
 import requests
@@ -252,6 +253,33 @@ def resolve_base_url(profile: str | None, url: str | None) -> str:
         return catalog_profile.url
     # Use default profile if neither provided
     return get_profile("swb").url
+
+
+def resolve_client_config(profile: str | None, url: str | None) -> dict[str, Any]:
+    """Build SWBClient constructor kwargs from profile or custom URL.
+
+    Includes catalog-specific quirks (record_schema, index_map) from the
+    profile so endpoints like the DNB work with the standard commands.
+    A custom URL takes precedence and gets no profile quirks.
+
+    Args:
+        profile: Profile name (e.g., 'swb', 'k10plus', 'dnb')
+        url: Custom SRU endpoint URL
+
+    Returns:
+        Keyword arguments for SWBClient (always contains "base_url")
+
+    Raises:
+        ValueError: If profile is unknown
+    """
+    config: dict[str, Any] = {"base_url": resolve_base_url(profile, url)}
+    if not url and profile:
+        catalog_profile = get_profile(profile)
+        if catalog_profile.record_schema:
+            config["record_schema"] = catalog_profile.record_schema
+        if catalog_profile.index_map:
+            config["index_map"] = catalog_profile.index_map
+    return config
 
 
 def handle_api_error(e: Exception, base_url: str) -> None:
@@ -528,8 +556,9 @@ def search(
         # Parse facets list
         facets_list = facets.split(",") if facets and facets.strip() else None
 
-        base_url = resolve_base_url(profile, url)
-        with SWBClient(base_url=base_url) as client:
+        client_config = resolve_client_config(profile, url)
+        base_url = client_config["base_url"]
+        with SWBClient(**client_config) as client:
             if not ctx.obj.get("quiet"):
                 console.print(f"[bold]Searching for:[/bold] {query}")
                 if search_index:
@@ -636,8 +665,9 @@ def isbn(
     try:
         fmt = RecordFormat[record_format.upper()]
 
-        base_url = resolve_base_url(profile, url)
-        with SWBClient(base_url=base_url) as client:
+        client_config = resolve_client_config(profile, url)
+        base_url = client_config["base_url"]
+        with SWBClient(**client_config) as client:
             if not ctx.obj.get("quiet"):
                 console.print(f"[bold]Searching for ISBN:[/bold] {isbn}")
                 console.print()
@@ -726,8 +756,9 @@ def issn(
     try:
         fmt = RecordFormat[record_format.upper()]
 
-        base_url = resolve_base_url(profile, url)
-        with SWBClient(base_url=base_url) as client:
+        client_config = resolve_client_config(profile, url)
+        base_url = client_config["base_url"]
+        with SWBClient(**client_config) as client:
             if not ctx.obj.get("quiet"):
                 console.print(f"[bold]Searching for ISSN:[/bold] {issn}")
                 console.print()
@@ -884,8 +915,9 @@ def related(
         sort_by_enum = SortBy[sort_by.upper()] if sort_by else None
         sort_order_enum = SortOrder[sort_order.upper()]
 
-        base_url = resolve_base_url(profile, url)
-        with SWBClient(base_url=base_url) as client:
+        client_config = resolve_client_config(profile, url)
+        base_url = client_config["base_url"]
+        with SWBClient(**client_config) as client:
             if not ctx.obj.get("quiet"):
                 console.print(
                     f"[bold]Searching for records related to PPN:[/bold] {ppn}"
@@ -1025,8 +1057,9 @@ def scan(
             swb scan "pica.sub=Machine Learning"
     """
     try:
-        base_url = resolve_base_url(profile, url)
-        with SWBClient(base_url=base_url) as client:
+        client_config = resolve_client_config(profile, url)
+        base_url = client_config["base_url"]
+        with SWBClient(**client_config) as client:
             if not ctx.obj.get("quiet"):
                 console.print(f"[bold]Scanning:[/bold] {scan_clause}")
                 console.print()
@@ -1095,8 +1128,9 @@ def explain(
         swb explain
     """
     try:
-        base_url = resolve_base_url(profile, url)
-        with SWBClient(base_url=base_url) as client:
+        client_config = resolve_client_config(profile, url)
+        base_url = client_config["base_url"]
+        with SWBClient(**client_config) as client:
             if not ctx.obj.get("quiet"):
                 console.print("[bold]Fetching server information...[/bold]")
                 console.print()

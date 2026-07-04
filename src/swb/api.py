@@ -179,6 +179,8 @@ class SWBClient:
         timeout: int = 30,
         api_key: str | None = None,
         rate_limit: int | None = None,
+        record_schema: str | None = None,
+        index_map: dict[str, str] | None = None,
     ) -> None:
         """Initialize the SWB API client.
 
@@ -190,10 +192,17 @@ class SWBClient:
             rate_limit: Maximum requests per second (None for no limit).
                        Useful for batch processing to avoid overwhelming the server.
                        Example: rate_limit=5 allows max 5 requests per second.
+            record_schema: Catalog-specific recordSchema name used instead of
+                          "marcxml" (e.g. "MARC21-xml" for the DNB endpoint).
+                          Only applied when requesting RecordFormat.MARCXML.
+            index_map: Maps standard pica.* index names to catalog-specific
+                      ones (e.g. {"pica.tit": "TIT"} for the DNB endpoint).
         """
         self.base_url = base_url or self.DEFAULT_BASE_URL
         self.timeout = timeout
         self.rate_limit = rate_limit
+        self.record_schema = record_schema
+        self.index_map = index_map or {}
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -209,6 +218,17 @@ class SWBClient:
 
         # Initialize rate limiting state
         self._request_times: list[float] = []
+
+    def _resolve_record_schema(self, record_format: RecordFormat) -> str:
+        """Return the recordSchema parameter value for a request.
+
+        Catalogs like the DNB reject the standard "marcxml" name; if a
+        record_schema override is configured, it replaces the MARCXML schema
+        name. Other formats are passed through unchanged.
+        """
+        if self.record_schema and record_format == RecordFormat.MARCXML:
+            return self.record_schema
+        return record_format.value
 
     def _handle_http_errors(self, response: requests.Response) -> None:
         """Handle common HTTP errors with helpful messages.
@@ -413,20 +433,22 @@ class SWBClient:
                 )
             )
 
-        # Build CQL query if index is specified
+        # Build CQL query if index is specified, translating the index name
+        # for catalogs that use their own vocabulary (e.g. DNB)
         if index:
-            cql_query = f'{index.value}="{query}"'
+            index_name = self.index_map.get(index.value, index.value)
+            cql_query = f'{index_name}="{query}"'
         else:
             cql_query = query
 
         # Use SRU 2.0 if facets are requested, unless version is explicitly set
         version = sru_version or ("2.0" if facets else self.SRU_VERSION)
 
-        params = {
+        params: dict[str, str | int] = {
             "version": version,
             "operation": "searchRetrieve",
             "query": cql_query,
-            "recordSchema": record_format.value,
+            "recordSchema": self._resolve_record_schema(record_format),
             "startRecord": start_record,
             "maximumRecords": maximum_records,
             "recordPacking": record_packing,
