@@ -234,6 +234,35 @@ DNB-Fix in ca00130). Scan ist auf beiden SWB-Endpunkten serverseitig nicht
 verfuegbar (Diagnostic 1/2 "System temporarily unavailable", verifiziert
 2026-11-02); nur opac-de-627 (K10plus) unterstuetzt Scan.
 
+### 15. hbz-Abdeckung via lobid-resources-Backend (NRW)
+
+**Priority**: Low
+**Effort**: High
+
+Das hbz (NRW) ist der einzige grosse Verbund ohne offene SRU-Schnittstelle: Die
+Aleph-Verbunddatenbank wurde Ende 2024 abgeschaltet (Migration auf Alma-
+Netzwerkzone), einen oeffentlichen Verbund-SRU gibt es nicht. Der offizielle
+offene Zugang ist die lobid-resources-API (https://lobid.org/resources/api,
+verifiziert 2026-11-02, Doku per Browser gelesen — die Doku-Seite hat
+Anubis-Bot-Schutz, die API selbst nicht):
+
+- JSON-LD ueber HTTP GET, keine Auth, CC0-Lizenz, Lucene-Query-Syntax
+- Suche: /resources/search?q=title:X | contribution.agent.label:X | isbn:X;
+  Paginierung via from/size; Bereichssuche publication.startDate:[* TO 1500];
+  nested=-Abfragen und Aggregationen
+- Holdings-Pendant: owner=DE-xxx,DE-yyy filtert auf Bestand; Treffer enthalten
+  unter hasItem Exemplardaten (Signatur, Standort, heldBy mit ISIL und
+  Klarname, Primo-Permalink) — reicher als unsere MARC-924-Auswertung
+- Scan-Ersatz: Autovervollstaendigung via format=json:suggest bzw.
+  format=json:title,contribution
+- Bulk: woechentlicher Volldump + taegliche Updates (JSON lines), auch via
+  API (format=jsonl, gzip)
+- Einzeltreffer auch als .json/.rdf/.ttl/.nt
+
+Umsetzung waere ein eigener JSON-Client neben der SRU-Maschinerie (eigene
+Models-Zuordnung JSON-LD -> SearchResult/Holding), kein CatalogProfile.
+NRW-Bestaende sind bis dahin naeherungsweise ueber --profile k10plus findbar.
+
 ## Completed Items
 
 ✅ All 37 GitHub issues closed
