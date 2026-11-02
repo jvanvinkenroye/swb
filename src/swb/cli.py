@@ -11,10 +11,12 @@ from rich import box
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.panel import Panel
+from rich.style import Style
 from rich.table import Table
 from rich.text import Text
 
 from swb.api import SWBClient
+from swb.lobid import LobidClient
 from swb.models import (
     RecordFormat,
     RecordType,
@@ -169,18 +171,25 @@ def display_results(
                     else:
                         library_display = "Unknown Library"
 
-                    access_info = []
+                    # Build cells as Text so URLs and call numbers are never
+                    # parsed as Rich markup (lobid URLs broke the parser)
+                    access_parts: list[Text] = []
                     if holding.access_url:
-                        access_info.append(
-                            f"[link={holding.access_url}]Online Access[/link]"
+                        access_parts.append(
+                            Text(
+                                "Online Access",
+                                style=Style(link=holding.access_url),
+                            )
                         )
                     if holding.access_note:
-                        access_info.append(holding.access_note)
-                    access_display = "\n".join(access_info) if access_info else "N/A"
+                        access_parts.append(Text(holding.access_note))
+                    access_display = (
+                        Text("\n").join(access_parts) if access_parts else Text("N/A")
+                    )
 
                     holdings_table.add_row(
-                        library_display,
-                        holding.collection or "N/A",
+                        Text(library_display),
+                        Text(holding.collection or "N/A"),
                         access_display,
                     )
 
@@ -280,6 +289,27 @@ def resolve_client_config(profile: str | None, url: str | None) -> dict[str, Any
         if catalog_profile.index_map:
             config["index_map"] = catalog_profile.index_map
     return config
+
+
+def create_client(profile: str | None, url: str | None) -> SWBClient | LobidClient:
+    """Create the right client for the given profile or custom URL.
+
+    Profiles with backend "lobid" (currently hbz) get a LobidClient; all
+    other profiles and custom URLs get an SWBClient (SRU). A custom --url
+    always means SRU.
+
+    Args:
+        profile: Profile name (e.g., 'swb', 'k10plus', 'hbz')
+        url: Custom SRU endpoint URL (overrides the profile)
+
+    Returns:
+        A client supporting the context-manager protocol
+    """
+    if not url and profile:
+        catalog_profile = get_profile(profile)
+        if catalog_profile.backend == "lobid":
+            return LobidClient(base_url=catalog_profile.url)
+    return SWBClient(**resolve_client_config(profile, url))
 
 
 def handle_api_error(e: Exception, base_url: str) -> None:
@@ -472,7 +502,7 @@ def cli(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     "--profile",
     "-p",
     type=click.Choice(list(PROFILES.keys()), case_sensitive=False),
-    help="Library catalog profile (swb, k10plus, gvk, dnb, bvb, hebis).",
+    help="Library catalog profile (swb, k10plus, gvk, dnb, bvb, hbz, hebis).",
 )
 @click.option(
     "--url",
@@ -556,9 +586,8 @@ def search(
         # Parse facets list
         facets_list = facets.split(",") if facets and facets.strip() else None
 
-        client_config = resolve_client_config(profile, url)
-        base_url = client_config["base_url"]
-        with SWBClient(**client_config) as client:
+        base_url = resolve_base_url(profile, url)
+        with create_client(profile, url) as client:
             if not ctx.obj.get("quiet"):
                 console.print(f"[bold]Searching for:[/bold] {query}")
                 if search_index:
@@ -622,7 +651,7 @@ def search(
     "--profile",
     "-p",
     type=click.Choice(list(PROFILES.keys()), case_sensitive=False),
-    help="Library catalog profile (swb, k10plus, gvk, dnb, bvb, hebis).",
+    help="Library catalog profile (swb, k10plus, gvk, dnb, bvb, hbz, hebis).",
 )
 @click.option(
     "--url",
@@ -665,9 +694,8 @@ def isbn(
     try:
         fmt = RecordFormat[record_format.upper()]
 
-        client_config = resolve_client_config(profile, url)
-        base_url = client_config["base_url"]
-        with SWBClient(**client_config) as client:
+        base_url = resolve_base_url(profile, url)
+        with create_client(profile, url) as client:
             if not ctx.obj.get("quiet"):
                 console.print(f"[bold]Searching for ISBN:[/bold] {isbn}")
                 console.print()
@@ -713,7 +741,7 @@ def isbn(
     "--profile",
     "-p",
     type=click.Choice(list(PROFILES.keys()), case_sensitive=False),
-    help="Library catalog profile (swb, k10plus, gvk, dnb, bvb, hebis).",
+    help="Library catalog profile (swb, k10plus, gvk, dnb, bvb, hbz, hebis).",
 )
 @click.option(
     "--url",
@@ -756,9 +784,8 @@ def issn(
     try:
         fmt = RecordFormat[record_format.upper()]
 
-        client_config = resolve_client_config(profile, url)
-        base_url = client_config["base_url"]
-        with SWBClient(**client_config) as client:
+        base_url = resolve_base_url(profile, url)
+        with create_client(profile, url) as client:
             if not ctx.obj.get("quiet"):
                 console.print(f"[bold]Searching for ISSN:[/bold] {issn}")
                 console.print()
@@ -839,7 +866,7 @@ def issn(
     "--profile",
     "-p",
     type=click.Choice(list(PROFILES.keys()), case_sensitive=False),
-    help="Library catalog profile (swb, k10plus, gvk, dnb, bvb, hebis).",
+    help="Library catalog profile (swb, k10plus, gvk, dnb, bvb, hbz, hebis).",
 )
 @click.option(
     "--url",
@@ -915,9 +942,8 @@ def related(
         sort_by_enum = SortBy[sort_by.upper()] if sort_by else None
         sort_order_enum = SortOrder[sort_order.upper()]
 
-        client_config = resolve_client_config(profile, url)
-        base_url = client_config["base_url"]
-        with SWBClient(**client_config) as client:
+        base_url = resolve_base_url(profile, url)
+        with create_client(profile, url) as client:
             if not ctx.obj.get("quiet"):
                 console.print(
                     f"[bold]Searching for records related to PPN:[/bold] {ppn}"
@@ -1022,7 +1048,7 @@ def profiles() -> None:
     "--profile",
     "-p",
     type=click.Choice(list(PROFILES.keys()), case_sensitive=False),
-    help="Library catalog profile (swb, k10plus, gvk, dnb, bvb, hebis).",
+    help="Library catalog profile (swb, k10plus, gvk, dnb, bvb, hbz, hebis).",
 )
 @click.option(
     "--url",
@@ -1057,9 +1083,8 @@ def scan(
             swb scan "pica.sub=Machine Learning"
     """
     try:
-        client_config = resolve_client_config(profile, url)
-        base_url = client_config["base_url"]
-        with SWBClient(**client_config) as client:
+        base_url = resolve_base_url(profile, url)
+        with create_client(profile, url) as client:
             if not ctx.obj.get("quiet"):
                 console.print(f"[bold]Scanning:[/bold] {scan_clause}")
                 console.print()
@@ -1103,7 +1128,7 @@ def scan(
     "--profile",
     "-p",
     type=click.Choice(list(PROFILES.keys()), case_sensitive=False),
-    help="Library catalog profile (swb, k10plus, gvk, dnb, bvb, hebis).",
+    help="Library catalog profile (swb, k10plus, gvk, dnb, bvb, hbz, hebis).",
 )
 @click.option(
     "--url",
@@ -1128,9 +1153,8 @@ def explain(
         swb explain
     """
     try:
-        client_config = resolve_client_config(profile, url)
-        base_url = client_config["base_url"]
-        with SWBClient(**client_config) as client:
+        base_url = resolve_base_url(profile, url)
+        with create_client(profile, url) as client:
             if not ctx.obj.get("quiet"):
                 console.print("[bold]Fetching server information...[/bold]")
                 console.print()

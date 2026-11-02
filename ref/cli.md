@@ -20,6 +20,8 @@ Output uses Rich (tables, panels); errors go to stderr with exit codes (see [api
 ## Key helpers
 
 - `resolve_base_url(url, profile)` — `--url` wins over `--profile`, default profile `swb`
+- `create_client(profile, url)` — returns `LobidClient` for profiles with
+  `backend="lobid"` (hbz), else `SWBClient` with profile quirks; `--url` always means SRU
 - `display_results(...)` — Rich tables; holdings table shows
   `"Name (CODE)"` for known libraries, just `CODE` for unknown ones
 - `handle_api_error(e, base_url)` — maps exceptions to messages + exit codes

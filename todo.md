@@ -234,10 +234,13 @@ DNB-Fix in ca00130). Scan ist auf beiden SWB-Endpunkten serverseitig nicht
 verfuegbar (Diagnostic 1/2 "System temporarily unavailable", verifiziert
 2026-11-02); nur opac-de-627 (K10plus) unterstuetzt Scan.
 
-### 15. hbz-Abdeckung via lobid-resources-Backend (NRW)
+### 15. hbz-Abdeckung via lobid-resources-Backend (NRW) — ERLEDIGT
 
-**Priority**: Low
-**Effort**: High
+Umgesetzt als src/swb/lobid.py (LobidClient) mit Profil "hbz"
+(backend="lobid" in CatalogProfile, Routing via create_client in cli.py).
+search/isbn/issn/--holdings funktionieren; scan/explain/related/--sort-by/
+--facets lehnen mit ValidationError und Hinweis auf k10plus ab.
+Urspruengliche Recherche-Notizen:
 
 Das hbz (NRW) ist der einzige grosse Verbund ohne offene SRU-Schnittstelle: Die
 Aleph-Verbunddatenbank wurde Ende 2024 abgeschaltet (Migration auf Alma-

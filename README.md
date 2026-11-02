@@ -254,7 +254,16 @@ swb profiles
 - **gvk** - GVK (Gemeinsamer Verbundkatalog) - the former GBV catalog, Northern Germany
 - **dnb** - DNB (Deutsche Nationalbibliothek) - German national bibliography (all German publications, but no lending holdings)
 - **bvb** - BVB (Bibliotheksverbund Bayern) - Bavaria
+- **hbz** - hbz union catalog (North Rhine-Westphalia) via the lobid-resources JSON API
 - **hebis** - HeBIS (Hessisches BibliotheksInformationsSystem) - Hesse and parts of Rhineland-Palatinate
+
+The `hbz` profile is special: the hbz has no public SRU endpoint (its Aleph
+union database was shut down end of 2024), so this profile talks to the
+official lobid-resources JSON API (https://lobid.org/resources/api) instead.
+`search`, `isbn`, `issn`, and `--holdings` work as usual - holdings even come
+inline with call numbers and catalog permalinks. Not available with `hbz`:
+`scan`, `explain`, `related`, `--sort-by`, and `--facets` (clear error
+messages point to an SRU profile such as `k10plus`).
 
 **Use a specific profile:**
 ```bash

@@ -20,6 +20,8 @@ class CatalogProfile:
         record_schema: Catalog-specific recordSchema name for MARCXML requests
                       (None means the standard "marcxml" is accepted)
         index_map: Maps standard pica.* index names to catalog-specific ones
+        backend: Client implementation: "sru" (SWBClient) or "lobid"
+                 (LobidClient, JSON API used for the hbz)
     """
 
     name: str
@@ -29,6 +31,7 @@ class CatalogProfile:
     region: str
     record_schema: str | None = None
     index_map: dict[str, str] = field(default_factory=dict)
+    backend: str = "sru"
 
 
 # Predefined catalog profiles
@@ -77,6 +80,16 @@ PROFILES = {
         display_name="BVB (Bibliotheksverbund Bayern)",
         description="Bavarian Library Network",
         region="Bayern",
+    ),
+    "hbz": CatalogProfile(
+        name="hbz",
+        url="https://lobid.org/resources",
+        display_name="hbz (NRW) via lobid-resources",
+        # The hbz has no public SRU since the Aleph shutdown (end of 2024);
+        # lobid-resources is its official open JSON API
+        description="hbz union catalog (NRW) via the lobid-resources JSON API",
+        region="Nordrhein-Westfalen",
+        backend="lobid",
     ),
     "hebis": CatalogProfile(
         name="hebis",

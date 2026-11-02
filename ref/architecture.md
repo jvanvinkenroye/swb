@@ -2,7 +2,8 @@
 
 Python 3.12+ client for German library catalogs via the SRU protocol (Search/Retrieve via URL).
 Primary target is the SWB (Suedwestdeutscher Bibliotheksverbund); also supports K10plus, GVK,
-DNB, BVB and HEBIS via profiles.
+DNB, BVB and HEBIS via profiles. The hbz (NRW) has no SRU and is served by a separate JSON
+client for its lobid-resources API (`lobid.py`, profile `hbz`, backend="lobid").
 
 ## Entry points (pyproject.toml)
 
@@ -16,10 +17,11 @@ DNB, BVB and HEBIS via profiles.
 | Module | Lines | Responsibility |
 |--------|-------|----------------|
 | `api.py` | ~1670 | `SWBClient`: HTTP calls, XML parsing, holdings, rate limiting. See [api.md](api.md) |
-| `cli.py` | ~1190 | Click CLI with 9 commands, Rich output. See [cli.md](cli.md) |
+| `cli.py` | ~1240 | Click CLI with 9 commands, Rich output, `create_client()` backend routing. See [cli.md](cli.md) |
+| `lobid.py` | ~330 | `LobidClient`: JSON client for lobid-resources (hbz). Same models; scan/explain/related raise `ValidationError` |
 | `models.py` | ~290 | Enums and dataclasses (all frozen data, no logic beyond `has_more`) |
 | `exceptions.py` | ~110 | Exception hierarchy + `format_error_message()` |
-| `profiles.py` | ~100 | `CatalogProfile`, `PROFILES` dict (6 catalogs), `get_profile()`, `list_profiles()` |
+| `profiles.py` | ~130 | `CatalogProfile` (incl. `backend` field), `PROFILES` dict (7 catalogs), `get_profile()`, `list_profiles()` |
 | `tui.py` | ~380 | Experimental Textual TUI (`SWBTUIDirect`), barely tested (3% coverage) |
 | `__init__.py` | ~75 | Re-exports client, models, exceptions; optional TUI import |
 

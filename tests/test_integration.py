@@ -147,6 +147,36 @@ class TestRealAPIScan:
 
 
 @pytest.mark.integration
+@pytest.mark.slow
+class TestRealLobidAPI:
+    """Integration tests for the lobid-resources client (hbz backend)."""
+
+    def test_real_lobid_search(self) -> None:
+        """Freetext search against the live lobid API."""
+        from swb.lobid import LobidClient
+
+        with LobidClient() as client:
+            response = client.search("Python", maximum_records=2)
+
+            assert response.total_results > 0
+            assert len(response.results) > 0
+            assert response.results[0].title is not None
+
+    def test_real_lobid_isbn_with_holdings(self) -> None:
+        """ISBN search returns inline holdings with ISIL and library name."""
+        from swb.lobid import LobidClient
+
+        with LobidClient() as client:
+            response = client.search_by_isbn("978-3-8362-9049-4")
+
+            assert response.total_results >= 1
+            holdings = response.results[0].holdings
+            assert holdings
+            assert holdings[0].library_code.startswith("DE-")
+            assert holdings[0].library_name is not None
+
+
+@pytest.mark.integration
 class TestRealAPIExplain:
     """Integration tests for explain() method."""
 

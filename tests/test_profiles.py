@@ -28,7 +28,7 @@ def test_catalog_profile_dataclass():
 
 def test_profiles_dict_contains_expected_profiles():
     """Test that PROFILES dict contains expected catalog profiles."""
-    expected_profiles = {"swb", "k10plus", "gvk", "dnb", "bvb", "hebis"}
+    expected_profiles = {"swb", "k10plus", "gvk", "dnb", "bvb", "hbz", "hebis"}
     assert set(PROFILES.keys()) == expected_profiles
 
 
@@ -72,7 +72,7 @@ def test_get_profile_unknown_error_shows_available():
 def test_list_profiles_returns_all():
     """Test that list_profiles returns all profiles."""
     profiles = list_profiles()
-    assert len(profiles) == 6
+    assert len(profiles) == 7
     assert all(isinstance(p, CatalogProfile) for p in profiles)
 
 
