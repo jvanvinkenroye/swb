@@ -11,8 +11,22 @@ Run only integration tests with:
 import pytest
 
 from swb.api import SWBClient
-from swb.exceptions import SWBError
+from swb.exceptions import APIError, SWBError
 from swb.models import RecordFormat, RelationType, SearchIndex
+
+
+def _skip_if_scan_unavailable(error: APIError) -> None:
+    """Skip instead of failing when the server has scan switched off.
+
+    The SWB SRU servers (sru.k10plus.de/swb and sru.bsz-bw.de/swb) answer
+    scan requests with diagnostic info:srw/diagnostic/1/2 ("System
+    temporarily unavailable") while searchRetrieve keeps working; scan is
+    not part of the documented interface, so this is a server-side gap,
+    not a client bug.
+    """
+    if "temporarily unavailable" in str(error):
+        pytest.skip(f"Server-side scan unavailable: {error}")
+    raise error
 
 
 @pytest.mark.integration
@@ -105,9 +119,13 @@ class TestRealAPIScan:
     def test_real_scan_title_index(self) -> None:
         """Test actual scan operation on title index."""
         with SWBClient() as client:
-            response = client.scan(
-                scan_clause="pica.tit=Python", maximum_terms=5
-            )
+            try:
+                response = client.scan(
+                    scan_clause="pica.tit=Python", maximum_terms=5
+                )
+            except APIError as e:
+                _skip_if_scan_unavailable(e)
+                return
 
             # Should get some scan terms
             assert len(response.terms) > 0
@@ -117,9 +135,13 @@ class TestRealAPIScan:
     def test_real_scan_author_index(self) -> None:
         """Test scan operation on author index."""
         with SWBClient() as client:
-            response = client.scan(
-                scan_clause="pica.per=Smith", maximum_terms=5
-            )
+            try:
+                response = client.scan(
+                    scan_clause="pica.per=Smith", maximum_terms=5
+                )
+            except APIError as e:
+                _skip_if_scan_unavailable(e)
+                return
 
             assert len(response.terms) > 0
 

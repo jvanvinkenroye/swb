@@ -218,6 +218,22 @@ pica.*). Verifiziert per curl gegen https://services.dnb.de/sru/dnb (funktionier
 mit korrekten Parametern). Fix: CatalogProfile um record_schema/Query-Syntax
 erweitern oder DNB-spezifisches Mapping in SWBClient.
 
+### 14. SWB-Profil auf sru.bsz-bw.de umziehen
+
+**Priority**: Medium
+**Effort**: Medium
+
+Die offizielle K10plus-Doku (wiki.k10plus.de/display/K10PLUS/SRU, Stand Feb 2025)
+listet sru.k10plus.de/swb nicht mehr: Das BSZ betreibt den SWB-SRU-Server unter
+https://sru.bsz-bw.de (Datenbanken: swb = PSI-Recherche ohne Login, swb-290 =
+Titeldaten, swb-299 = Bestaende; Test: srut.bsz-bw.de). Der alte Endpunkt
+antwortet noch auf searchRetrieve, ist aber abgeloest. Achtung: Der BSZ-Server
+nutzt eigene recordSchema-Werte (marcxmlk10os, picaxml u.a.) — vorab testen,
+ob marcxml dort funktioniert, sonst record_schema im Profil setzen (wie beim
+DNB-Fix in ca00130). Scan ist auf beiden SWB-Endpunkten serverseitig nicht
+verfuegbar (Diagnostic 1/2 "System temporarily unavailable", verifiziert
+2026-11-02); nur opac-de-627 (K10plus) unterstuetzt Scan.
+
 ## Completed Items
 
 ✅ All 37 GitHub issues closed
