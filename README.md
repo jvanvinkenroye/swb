@@ -232,16 +232,27 @@ swb search "Python" --start-record 11 --max 10
 
 The SWB client supports multiple German library union catalogs through pre-configured profiles. This allows you to search different catalogs without manually specifying endpoint URLs.
 
+**Background: SWB vs. K10plus**
+
+German libraries catalog their holdings in shared union catalogs ("Verbundkataloge"). The two most relevant here:
+
+- **SWB** (Südwestdeutscher Bibliotheksverbund) covers Baden-Württemberg, Saarland, and Saxony — about 1,200 libraries, including the university libraries of Stuttgart, Tübingen, Heidelberg, and Freiburg, and the WLB Stuttgart. Run by the BSZ (Bibliotheksservice-Zentrum Baden-Württemberg) in Konstanz.
+- **K10plus** is the merged catalog of SWB and GBV (the northern German union), created in 2019. It covers ten federal states plus the Stiftung Preußischer Kulturbesitz (hence the name) and is Germany's largest library data pool with over 200 million records from more than 3,000 libraries. Jointly run by BSZ and VZG (Göttingen).
+
+Technically, the SWB is today a regional slice of the K10plus database: same data pool, filtered to southwestern holdings. Rule of thumb: search **swb** (the default) to find what is available regionally for local lending; switch to **k10plus** for nationwide coverage, e.g. when the SWB has no hits or for interlibrary loan.
+
+Note: the SWB SRU endpoint does not support the `scan` operation server-side; use `--profile k10plus` for `swb scan`.
+
 **List available profiles:**
 ```bash
 swb profiles
 ```
 
 **Available profiles:**
-- **swb** - SWB (Südwestdeutscher Bibliotheksverbund) - Baden-Württemberg, Saarland, Sachsen
-- **k10plus** - K10plus Verbundkatalog - Northern and southwestern Germany (includes many NRW libraries)
-- **gvk** - GBV (Gemeinsamer Verbundkatalog) - Northern Germany
-- **dnb** - DNB (Deutsche Nationalbibliothek) - German National Library
+- **swb** - SWB (Südwestdeutscher Bibliotheksverbund) - Baden-Württemberg, Saarland, Saxony (default)
+- **k10plus** - K10plus Verbundkatalog - merged SWB + GBV catalog, largest coverage nationwide
+- **gvk** - GVK (Gemeinsamer Verbundkatalog) - the former GBV catalog, Northern Germany
+- **dnb** - DNB (Deutsche Nationalbibliothek) - German national bibliography (all German publications, but no lending holdings)
 - **bvb** - BVB (Bibliotheksverbund Bayern) - Bavaria
 - **hebis** - HeBIS (Hessisches BibliotheksInformationsSystem) - Hesse and parts of Rhineland-Palatinate
 
